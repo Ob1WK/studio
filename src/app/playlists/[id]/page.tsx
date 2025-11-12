@@ -6,12 +6,13 @@ import { doc, collection, query, where, documentId, getDocs, Firestore } from 'f
 import type { Playlist, Song } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Share2, ChevronLeft, ChevronRight, Play, Square, Minus, Plus } from 'lucide-react';
-import { transposeSong } from '@/lib/chords';
-import { useEffect, useState } from 'react';
+import { Music, Share2, ChevronLeft, ChevronRight, Play, Square } from 'lucide-react';
+import { transposeSong, getNoteFromIndex, getNoteIndex, NOTES, getFirstChord } from '@/lib/chords';
+import { useEffect, useState, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { AppHeader } from '@/components/app-header';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 async function getSongsForPlaylist(db: Firestore, songIds: string[]): Promise<Song[]> {
     if (!songIds || songIds.length === 0) return [];
@@ -92,7 +93,9 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
     }
   }, [playlist, firestore]);
 
-  const currentSong = songsInPlaylist.find(s => s.id === playlist?.currentSongId);
+  const currentSong = useMemo(() => songsInPlaylist.find(s => s.id === playlist?.currentSongId), [songsInPlaylist, playlist?.currentSongId]);
+  const originalKey = useMemo(() => currentSong ? getFirstChord(currentSong.chords) : null, [currentSong]);
+
   const isAdmin = user && playlist && user.uid === playlist.userId;
 
   const handleSessionState = (isActive: boolean) => {
@@ -121,11 +124,18 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
       }
   };
   
-  const handleTranspose = (amount: number) => {
-      if (!isAdmin || playlist?.transpose === undefined || !playlistRef) return;
-      const newTranspose = (playlist.transpose || 0) + amount;
-      updateDocumentNonBlocking(playlistRef, { transpose: newTranspose });
+  const handleKeyChange = (newKey: string) => {
+    if (!isAdmin || !playlistRef || !originalKey) return;
+
+    const originalKeyIndex = getNoteIndex(originalKey);
+    const newKeyIndex = getNoteIndex(newKey);
+    
+    if (originalKeyIndex === -1 || newKeyIndex === -1) return;
+
+    const transposeAmount = newKeyIndex - originalKeyIndex;
+    updateDocumentNonBlocking(playlistRef, { transpose: transposeAmount });
   };
+
 
   const copyShareLink = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -152,6 +162,14 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
   }
   
   const displayedChords = currentSong ? transposeSong(currentSong.chords, playlist.transpose || 0) : '';
+
+  const currentKey = useMemo(() => {
+    if (!originalKey) return null;
+    const originalKeyIndex = getNoteIndex(originalKey);
+    if (originalKeyIndex === -1) return null;
+    const newKeyIndex = (originalKeyIndex + (playlist?.transpose || 0) + 12) % 12;
+    return getNoteFromIndex(newKeyIndex);
+  }, [originalKey, playlist?.transpose]);
 
   // SESSION NOT ACTIVE (LOBBY VIEW)
   if (!playlist.isSessionActive) {
@@ -274,11 +292,17 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                                     </div>
                                     {isAdmin && (
                                         <div className="flex items-center gap-2">
-                                            <Button variant="outline" size="icon" onClick={() => handleTranspose(-1)}><Minus /></Button>
-                                            <span className="font-bold w-16 text-center text-lg">
-                                                Key: {playlist.transpose > 0 ? '+' : ''}{playlist.transpose}
-                                            </span>
-                                            <Button variant="outline" size="icon" onClick={() => handleTranspose(1)}><Plus /></Button>
+                                            <span className="text-sm text-muted-foreground">Key</span>
+                                            <Select onValueChange={handleKeyChange} value={currentKey || ''} disabled={!originalKey}>
+                                                <SelectTrigger className="w-[120px]">
+                                                    <SelectValue placeholder="Select key" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {NOTES.map(note => (
+                                                        <SelectItem key={note} value={note}>{note}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     )}
                                 </div>

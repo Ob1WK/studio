@@ -1,17 +1,21 @@
 'use client';
 
-const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const FLATS: { [key: string]: string } = {
   'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#',
 };
 const SHARPS: { [key: string]: string } = Object.fromEntries(Object.entries(FLATS).map(([k, v]) => [v, k]));
 
-const getNoteIndex = (note: string): number => {
-    const sanitizedNote = note.length > 1 && note[1] === 'b' ? FLATS[note] : note;
+export const getNoteIndex = (note: string): number => {
+    // Sanitize note: C#m7 -> C#
+    const rootNoteMatch = note.match(/^([A-G][#b]?)/);
+    if (!rootNoteMatch) return -1;
+    const rootNote = rootNoteMatch[1];
+    const sanitizedNote = rootNote.length > 1 && rootNote[1] === 'b' ? FLATS[rootNote] : rootNote;
     return NOTES.indexOf(sanitizedNote);
 };
 
-const getNoteFromIndex = (index: number, preferSharp: boolean = false): string => {
+export const getNoteFromIndex = (index: number, preferSharp: boolean = false): string => {
     const note = NOTES[index % 12];
     if (!preferSharp && SHARPS[note]) {
         return SHARPS[note];
@@ -39,7 +43,9 @@ export const transposeChord = (chord: string, amount: number): string => {
 };
 
 export const transposeSong = (songContent: string, amount: number): string => {
-    if (!amount || amount === 0) return songContent;
+    if (amount === 0) return songContent;
+    if (amount === undefined || amount === null) return songContent;
+
 
     const chordRegex = /\[([A-G][#b]?[^\]]*)\]/g;
     return songContent.replace(chordRegex, (fullMatch, chord) => {
@@ -47,3 +53,14 @@ export const transposeSong = (songContent: string, amount: number): string => {
         return `[${transposed}]`;
     });
 };
+
+export const getFirstChord = (songContent: string): string | null => {
+    const chordRegex = /\[([A-G][#b]?[^\]]*)\]/;
+    const match = songContent.match(chordRegex);
+    if (match && match[1]) {
+        const chord = match[1];
+        const noteMatch = chord.match(/^([A-G][#b]?)/);
+        return noteMatch ? noteMatch[1] : null;
+    }
+    return null;
+}

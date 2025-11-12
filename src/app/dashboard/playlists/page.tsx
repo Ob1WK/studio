@@ -3,9 +3,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
-import { PlusCircle, Users } from 'lucide-react';
+import { PlusCircle, Users, Trash2 } from 'lucide-react';
 import type { Playlist, Song } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,6 +18,17 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import React, { useState } from 'react';
@@ -25,11 +36,13 @@ import { Switch } from '@/components/ui/switch';
 import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
 
 export default function PlaylistsPage() {
     const { user } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
+    const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,7 +81,6 @@ export default function PlaylistsPage() {
         const isPublic = formData.get('isPublic') === 'on';
 
         const userPlaylistsCollectionRef = collection(firestore, 'users', user.uid, 'playlists');
-        const publicPlaylistsCollectionRef = collection(firestore, 'playlists');
         
         const liveSessionId = uuidv4();
 
@@ -88,6 +100,7 @@ export default function PlaylistsPage() {
             const userDocRef = await addDocumentNonBlocking(userPlaylistsCollectionRef, newPlaylist);
             if (isPublic) {
                 // Add to the public collection with the same ID
+                const publicPlaylistsCollectionRef = collection(firestore, 'playlists');
                 const publicDocRef = doc(publicPlaylistsCollectionRef, userDocRef.id);
                 setDocumentNonBlocking(publicDocRef, newPlaylist, { merge: false });
             }
@@ -99,6 +112,25 @@ export default function PlaylistsPage() {
         } finally {
             setIsSubmitting(false);
         }
+    }
+    
+    const handleDeletePlaylist = (playlist: Playlist) => {
+        if (!user || !firestore) return;
+
+        // Delete from user's private collection
+        const userPlaylistRef = doc(firestore, 'users', user.uid, 'playlists', playlist.id);
+        deleteDocumentNonBlocking(userPlaylistRef);
+
+        // If it's a public playlist, delete from the public collection as well
+        if (playlist.isPublic) {
+            const publicPlaylistRef = doc(firestore, 'playlists', playlist.id);
+            deleteDocumentNonBlocking(publicPlaylistRef);
+        }
+
+        toast({
+            title: 'Playlist Deleted',
+            description: `"${playlist.name}" has been removed.`,
+        });
     }
 
     return (
@@ -182,8 +214,8 @@ export default function PlaylistsPage() {
             {playlistsLoading ? <p>Loading playlists...</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {playlists?.map((playlist) => (
-                    <Link href={`/dashboard/playlists/${playlist.id}`} key={playlist.id}>
-                        <Card className="group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                    <Card key={playlist.id} className="group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+                        <Link href={`/dashboard/playlists/${playlist.id}`} className='flex flex-col h-full'>
                             <div className="relative">
                                 <Image
                                     src={playlist.coverArtUrl || "https://picsum.photos/seed/playlist/400/400"}
@@ -208,10 +240,35 @@ export default function PlaylistsPage() {
                              <CardContent className="p-4 pt-0 flex-grow">
                                 <p className="text-muted-foreground text-sm">{playlist.description}</p>
                             </CardContent>
-                        </Card>
-                    </Link>
+                        </Link>
+                        <div className="p-2 border-t mt-auto opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                                        <Trash2 className="h-4 w-4 mr-1"/> Delete
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the playlist
+                                            "{playlist.name}".
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeletePlaylist(playlist)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                            Delete
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    </Card>
                 ))}
             </div>
             )}
         </div>
     );
+}

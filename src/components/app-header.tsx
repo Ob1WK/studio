@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Menu, Music, LogOut, PlusCircle, User } from 'lucide-react';
+import { Menu, Music, LogOut, PlusCircle, User, ListMusic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -39,17 +39,17 @@ export function AppHeader() {
         >
           Dashboard
         </Link>
+         <Link
+          href="/dashboard/songs"
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          My Songs
+        </Link>
         <Link
           href="/dashboard/playlists"
           className="text-muted-foreground transition-colors hover:text-foreground"
         >
           Playlists
-        </Link>
-        <Link
-          href="/dashboard/songs/new"
-          className="text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Add Song
         </Link>
       </nav>
       <Sheet>
@@ -72,6 +72,12 @@ export function AppHeader() {
               Dashboard
             </Link>
             <Link
+                href="/dashboard/songs"
+                className="text-muted-foreground hover:text-foreground"
+            >
+                My Songs
+            </Link>
+            <Link
               href="/dashboard/playlists"
               className="text-muted-foreground hover:text-foreground"
             >
@@ -88,7 +94,9 @@ export function AppHeader() {
       </Sheet>
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <div className="ml-auto flex-1 sm:flex-initial">
-          {/* Future search bar can go here */}
+            <Button asChild>
+                <Link href="/dashboard/songs/new"><PlusCircle/> New Song</Link>
+            </Button>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -105,6 +113,9 @@ export function AppHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link href="/dashboard/profile"><User className="mr-2 h-4 w-4"/>Profile</Link>
+            </DropdownMenuItem>
+             <DropdownMenuItem asChild>
+                <Link href="/dashboard/songs"><ListMusic className="mr-2 h-4 w-4"/>My Songs</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
                 <Link href="/dashboard/songs/new"><PlusCircle className="mr-2 h-4 w-4"/>Add Song</Link>

@@ -1,137 +1,150 @@
-import { songs, users } from "@/lib/data";
-import { notFound } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Share2, Plus, ListMusic } from "lucide-react";
+'use client';
+
+import { notFound, useRouter } from 'next/navigation';
+import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { Song } from '@/lib/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Share2, Save, Trash2, Music } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import { Textarea } from "@/components/ui/textarea";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function SongDetailPage({ params }: { params: { id: string } }) {
-    const song = songs.find(s => s.id === params.id);
-    if (!song) {
-        notFound();
+  const { id: songId } = params;
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [title, setTitle] = useState('');
+  const [artist, setArtist] = useState('');
+  const [chords, setChords] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const songRef = useMemoFirebase(() => {
+    if (!user || !songId) return null;
+    return doc(firestore, 'users', user.uid, 'songs', songId);
+  }, [firestore, user, songId]);
+
+  const { data: song, isLoading, error } = useDoc<Song>(songRef);
+
+  useEffect(() => {
+    if (song) {
+      setTitle(song.title);
+      setArtist(song.artist);
+      setChords(song.chords);
     }
+  }, [song]);
 
-    const currentUser = users[0];
+  const handleSaveChanges = () => {
+    if (!songRef) return;
+    setIsSaving(true);
+    updateDocumentNonBlocking(songRef, {
+      title,
+      artist,
+      chords,
+    });
+    toast({
+      title: 'Song Updated',
+      description: `"${title}" has been saved.`,
+    });
+    setIsSaving(false);
+  };
+  
+   const handleDeleteSong = () => {
+    if (!songRef) return;
+    // Implement delete function if available in firebase helpers
+    // deleteDocumentNonBlocking(songRef);
+    toast({
+        title: 'Song Deleted',
+        description: `"${title}" has been removed.`,
+        variant: 'destructive'
+    });
+    router.push('/dashboard/songs');
+   }
 
-    return (
-        <div className="container mx-auto max-w-4xl">
-            <div className="mb-8">
-                <h1 className="text-4xl font-headline font-bold">{song.title}</h1>
-                <p className="text-xl text-muted-foreground mt-1">{song.artist}</p>
-                <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                    <span>Uploaded by {song.author.name}</span>
-                </div>
+
+  if (isLoading) {
+    return <div className="container mx-auto max-w-4xl text-center p-8">Loading song...</div>;
+  }
+
+  if (error || !song) {
+    return <div className="container mx-auto max-w-4xl text-center p-8 text-destructive">Could not load song. It may not exist or you don't have permission to view it.</div>;
+  }
+  
+  const isOwner = user && song && user.uid === song.userId;
+
+
+  return (
+    <div className="container mx-auto max-w-4xl">
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <Label htmlFor="title" className="text-xs text-muted-foreground">Title</Label>
+              <Input id="title" value={title} onChange={e => setTitle(e.target.value)} className="text-4xl font-headline font-bold h-auto p-0 border-0 shadow-none focus-visible:ring-0" disabled={!isOwner} />
+              <Label htmlFor="artist" className="text-xs text-muted-foreground mt-2">Artist</Label>
+              <Input id="artist" value={artist} onChange={e => setArtist(e.target.value)} className="text-xl text-muted-foreground mt-1 p-0 border-0 shadow-none focus-visible:ring-0 h-auto" disabled={!isOwner} />
             </div>
-
-            <div className="flex items-center gap-2 mb-8">
-                 <Dialog>
-                    <DialogTrigger asChild>
-                        <Button><Plus className="mr-2 h-4 w-4"/> Add to Playlist</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                        <DialogTitle>Add to Playlist</DialogTitle>
-                        <DialogDescription>
-                            Select a playlist to add "{song.title}" to.
-                        </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                             {/* Playlist selection would go here */}
-                             <p className="text-sm text-muted-foreground">Playlist functionality coming soon!</p>
-                             <Button className="w-full">Add</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button variant="outline"><Share2 className="mr-2 h-4 w-4"/> Share</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                        <DialogTitle>Share this Song</DialogTitle>
-                        <DialogDescription>
-                            Copy the link below to share with your friends.
-                        </DialogDescription>
-                        </DialogHeader>
-                        <div className="flex items-center space-x-2">
-                            <Input id="link" defaultValue={`https://holyharmonies.app/songs/${song.id}`} readOnly />
-                            <Button type="submit" size="sm" className="px-3">
-                                <span className="sr-only">Copy</span>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+             {isOwner && (
+                <div className="flex gap-2">
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        <Save className="mr-2" /> {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon">
+                                <Trash2 />
                             </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This action cannot be undone. This will permanently delete the song
+                                    "{song.title}".
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteSong} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                                    Delete
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Label htmlFor="chords" className="text-xs text-muted-foreground">Chords & Lyrics</Label>
+          <Textarea
+            id="chords"
+            value={chords}
+            onChange={e => setChords(e.target.value)}
+            className="font-code text-sm whitespace-pre-wrap leading-relaxed min-h-[50vh] mt-1"
+            disabled={!isOwner}
+          />
+        </CardContent>
+      </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Chords & Lyrics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <pre className="font-code text-sm whitespace-pre-wrap leading-relaxed">
-                        {song.content.trim()}
-                    </pre>
-                </CardContent>
-            </Card>
-
-            <section className="mt-12">
-                <h2 className="text-2xl font-headline font-semibold mb-4">Community Variations</h2>
-                <Accordion type="single" collapsible className="w-full">
-                {song.variations.map((variation, index) => (
-                    <AccordionItem value={`item-${index}`} key={variation.id}>
-                        <AccordionTrigger>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={variation.author.avatarUrl} alt={variation.author.name} data-ai-hint="person portrait"/>
-                                    <AvatarFallback>{variation.author.name.substring(0,2)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-semibold">{variation.author.name}'s Version</p>
-                                    <p className="text-sm text-muted-foreground">Submitted on {new Date(variation.createdAt).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                           <pre className="font-code text-sm whitespace-pre-wrap leading-relaxed bg-secondary p-4 rounded-md">
-                                {variation.content.trim()}
-                            </pre>
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-                </Accordion>
-
-                <Card className="mt-8">
-                    <CardHeader>
-                        <CardTitle className="font-headline">Submit Your Variation</CardTitle>
-                        <CardDescription>Have a different way of playing this song? Share it with the community!</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form className="space-y-4">
-                            <Textarea rows={10} placeholder="[Verse 1]&#10;[G]Amazing grace... " className="font-code" />
-                            <Button>Submit Variation</Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            </section>
-        </div>
-    );
+      {/* Community variations can be re-implemented here later */}
+    </div>
+  );
 }

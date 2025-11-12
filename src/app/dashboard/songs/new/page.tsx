@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
+import { doc, collection } from "firebase/firestore";
 import type { Song } from "@/lib/types";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 export default function NewSongPage() {
     const { toast } = useToast();
@@ -26,56 +27,21 @@ export default function NewSongPage() {
 
     const formatChords = (rawText: string): string => {
         const lines = rawText.split('\n');
-        const formattedLines: string[] = [];
+        const formattedLines = lines.map(line => {
+            // A line is considered a chord line if it's not empty and contains
+            // characters typically found in chords, and few lowercase letters.
+            // This regex is a heuristic. It looks for common chord patterns.
+            const chordLineRegex = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add|M)?[0-9]?(\/[A-G][#b]?)?/;
+            const containsChords = chordLineRegex.test(line.trim());
+            const hasLowercase = /[a-z]/.test(line);
 
-        const chordRegex = /([A-G][#b]?(?:m|maj|min|dim|aug|sus|add|M)?[0-9]?(?:\/[A-G][#b]?)?)/;
-        // A line is a chord line if it contains chords and very few letters, or common chord patterns
-        const isChordLine = (line: string) => {
-            const chordPattern = /([A-G](#|b)?(m|maj|min|dim|aug|sus|add|M)?[0-9]?(\/([A-G](#|b)?))?\s*)+/g;
-            const textOnly = line.replace(chordPattern, '').replace(/\s/g, '');
-            return chordPattern.test(line) && textOnly.length < 5;
-        }
-
-        for (let i = 0; i < lines.length; i++) {
-            const currentLine = lines[i];
-
-            if (isChordLine(currentLine) && i + 1 < lines.length) {
-                const nextLine = lines[i + 1];
-                // If the next line is NOT a chord line, we process them as a pair.
-                if (!isChordLine(nextLine) && nextLine.trim() !== '') {
-                    const chordsWithPositions: { chord: string, pos: number }[] = [];
-                    const chordMatches = currentLine.match(/(\S+)/g) || [];
-
-                    let searchIndex = 0;
-                    chordMatches.forEach(chord => {
-                        const pos = currentLine.indexOf(chord, searchIndex);
-                        if (pos !== -1 && chordRegex.test(chord)) {
-                            chordsWithPositions.push({ chord: `[${chord}]`, pos });
-                            searchIndex = pos + chord.length;
-                        }
-                    });
-                    
-                    let lyricLineWithChords = nextLine;
-                    // Insert chords from end to start to not mess up indices
-                    for (let j = chordsWithPositions.length - 1; j >= 0; j--) {
-                        const { chord, pos } = chordsWithPositions[j];
-                        if (pos < lyricLineWithChords.length) {
-                           lyricLineWithChords = lyricLineWithChords.slice(0, pos) + chord + lyricLineWithChords.slice(pos);
-                        } else {
-                           lyricLineWithChords += ' ' + chord;
-                        }
-                    }
-                    formattedLines.push(lyricLineWithChords);
-                    i++; // Increment i because we've processed the next line already
-                } else {
-                    // It's a chord line but the next line is also a chord line or empty, so just add it (e.g. for intros)
-                    formattedLines.push(currentLine.replace(/(\S+)/g, '[$1]'));
-                }
-            } else {
-                // It's a lyric line or a line we don't know how to handle, so just add it.
-                formattedLines.push(currentLine);
+            if (containsChords && !hasLowercase) {
+                // This is likely a chord line. Wrap each "word" (chord) in brackets.
+                return line.trim().replace(/(\S+)/g, '[$1]');
             }
-        }
+            // Otherwise, it's a lyric line or something else, return as is.
+            return line;
+        });
         return formattedLines.join('\n');
     };
 
@@ -110,12 +76,13 @@ export default function NewSongPage() {
             return;
         }
 
-        const songsCollectionRef = collection(firestore, 'users', user.uid, 'songs');
-
         // Apply formatting one last time on save
         const finalChords = formatChords(chords);
+        const songId = uuidv4();
+        const songRef = doc(firestore, 'users', user.uid, 'songs', songId);
 
-        const newSong: Omit<Song, 'id'> = {
+        const newSong: Omit<Song, 'id'> & { id: string } = {
+            id: songId,
             userId: user.uid,
             title,
             artist,
@@ -125,15 +92,16 @@ export default function NewSongPage() {
         };
         
         try {
-            const docRef = await addDocumentNonBlocking(songsCollectionRef, newSong);
-            setDocumentNonBlocking(doc(firestore, 'users', user.uid, 'songs', docRef.id), { id: docRef.id }, { merge: true });
+            // Use setDocumentNonBlocking for a single, reliable write operation.
+            setDocumentNonBlocking(songRef, newSong, { merge: false });
 
             toast({
                 title: "Song Submitted!",
                 description: "Your new song has been added successfully.",
             });
             
-            router.push('/dashboard/songs');
+            // Redirect after a short delay to allow optimistic update to process
+            setTimeout(() => router.push('/dashboard/songs'), 500);
 
         } catch (error) {
             console.error("Error creating song:", error);
@@ -143,7 +111,8 @@ export default function NewSongPage() {
                 description: "There was a problem saving your song.",
             });
         } finally {
-            setIsSubmitting(false);
+            // We keep submitting state until redirect happens
+            // setIsSubmitting(false);
         }
     }
 

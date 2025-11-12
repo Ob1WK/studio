@@ -31,12 +31,14 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
 
   const [songsInPlaylist, setSongsInPlaylist] = useState<Song[]>([]);
   const [songsLoading, setSongsLoading] = useState(true);
-  const [shareUrl, setShareUrl] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.location.href;
+  
+  // CORRECTED: Generate shareUrl dynamically based on playlistId and window.location.origin
+  const shareUrl = useMemo(() => {
+    if (typeof window !== 'undefined' && playlistId) {
+      return `${window.location.origin}/playlists/${playlistId}`;
     }
     return '';
-  });
+  }, [playlistId]);
 
   const playlistRef = useMemoFirebase(() => {
     if (!playlistId || !firestore) return null;
@@ -45,8 +47,6 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
 
   const { data: playlist, isLoading: playlistLoading, error } = useDoc<Playlist>(playlistRef);
   
-  // Removed the useEffect that was setting shareUrl, as it's now initialized directly in useState.
-
   useEffect(() => {
     if (playlist && playlist.songIds && playlist.songIds.length > 0 && firestore) {
       const fetchSongData = async () => {

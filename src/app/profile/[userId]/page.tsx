@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
 import Link from 'next/link';
+import { format } from 'date-fns'; // Import format from date-fns
 
 export default function UserProfilePage({ params }: { params: { userId: string } }) {
   const { userId } = params;

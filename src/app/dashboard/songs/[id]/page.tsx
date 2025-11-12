@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AddVariationDialog } from '@/components/AddVariationDialog';
 import Link from 'next/link';
+import { format } from 'date-fns'; // Import format from date-fns
 
 export default function SongDetailPage({ params }: { params: { id: string } }) {
   const { id: songId } = params;
@@ -166,7 +167,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
                             <CardTitle className="text-lg font-semibold">Variation by <Link href={`/profile/${variation.userId}`} className="underline">{variation.userId}</Link></CardTitle>
                             <CardDescription className="flex items-center gap-2 text-sm">
                                 <UserIcon className="h-3 w-3" />
-                                Submitted on {new Date(variation.submissionDate).toLocaleDateString()}
+                                Submitted on {format(new Date(variation.submissionDate), 'PPP')}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>

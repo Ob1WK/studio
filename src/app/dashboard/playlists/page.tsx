@@ -3,8 +3,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, doc, where } from 'firebase/firestore';
+import { useUser, useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc, where } from 'firebase/firestore';
 import { PlusCircle, Users, Trash2 } from 'lucide-react';
 import type { Playlist, Song } from '@/lib/types';
 import { useRouter } from 'next/navigation';
@@ -261,7 +261,7 @@ export default function PlaylistsPage() {
                                         <AlertDialogDescription>
                                             This action cannot be undone. This will permanently delete the playlist
                                             "{playlist.name}".
-                                        </Description>
+                                        </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>

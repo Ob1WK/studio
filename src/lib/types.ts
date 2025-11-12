@@ -32,4 +32,7 @@ export type Playlist = {
   isPublic: boolean;
   songIds: string[];
   coverArtUrl?: string;
+  liveSessionId?: string;
+  currentSongId?: string;
+  transpose?: number;
 };

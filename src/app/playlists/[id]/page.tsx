@@ -95,6 +95,15 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
 
   const currentSong = useMemo(() => songsInPlaylist.find(s => s.id === playlist?.currentSongId), [songsInPlaylist, playlist?.currentSongId]);
   const originalKey = useMemo(() => currentSong ? getFirstChord(currentSong.chords) : null, [currentSong]);
+  const displayedChords = useMemo(() => currentSong ? transposeSong(currentSong.chords, playlist?.transpose || 0) : '', [currentSong, playlist?.transpose]);
+
+  const currentKey = useMemo(() => {
+    if (!originalKey) return null;
+    const originalKeyIndex = getNoteIndex(originalKey);
+    if (originalKeyIndex === -1) return null;
+    const newKeyIndex = (originalKeyIndex + (playlist?.transpose || 0) + 12) % 12;
+    return getNoteFromIndex(newKeyIndex);
+  }, [originalKey, playlist?.transpose]);
 
   const isAdmin = user && playlist && user.uid === playlist.userId;
 
@@ -160,16 +169,6 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
         </div>
     );
   }
-  
-  const displayedChords = currentSong ? transposeSong(currentSong.chords, playlist.transpose || 0) : '';
-
-  const currentKey = useMemo(() => {
-    if (!originalKey) return null;
-    const originalKeyIndex = getNoteIndex(originalKey);
-    if (originalKeyIndex === -1) return null;
-    const newKeyIndex = (originalKeyIndex + (playlist?.transpose || 0) + 12) % 12;
-    return getNoteFromIndex(newKeyIndex);
-  }, [originalKey, playlist?.transpose]);
 
   // SESSION NOT ACTIVE (LOBBY VIEW)
   if (!playlist.isSessionActive) {

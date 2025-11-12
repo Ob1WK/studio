@@ -13,7 +13,34 @@ import type { Song } from "@/lib/types";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
-import { formatSong } from "@/ai/flows/format-song-flow";
+
+// This regex helps identify if a word is likely a chord.
+// It looks for standard chord patterns (e.g., C, Gm, F#m7, G/B).
+const CHORD_REGEX = /^[A-G][#b]?(m|maj|dim|aug|sus|add)?[0-9]?(\/[A-G][#b]?)?$/;
+
+const isChordLine = (line: string): boolean => {
+    const words = line.trim().split(/\s+/);
+    if (words.length === 0 || words[0] === '') return false;
+    // A line is considered a chord line if at least half of its words look like chords.
+    // This handles lines that might have some text but are mostly chords.
+    const chordWords = words.filter(word => CHORD_REGEX.test(word));
+    return chordWords.length / words.length > 0.5;
+}
+
+const formatChords = (text: string): string => {
+    return text
+        .split('\n')
+        .map(line => {
+            if (isChordLine(line)) {
+                // If it's a chord line, wrap each word (chord) in brackets.
+                return line.trim().split(/\s+/).map(chord => `[${chord}]`).join(' ');
+            }
+            // Otherwise, it's a lyric line, so leave it as is.
+            return line;
+        })
+        .join('\n');
+};
+
 
 export default function NewSongPage() {
     const { toast } = useToast();
@@ -26,21 +53,20 @@ export default function NewSongPage() {
     const [chords, setChords] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isFormatting, setIsFormatting] = useState(false);
-
-    const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    
+    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const pastedText = e.clipboardData.getData('text');
         e.preventDefault();
         setIsFormatting(true);
-        setChords("Formatting with AI... please wait.");
         try {
-            const result = await formatSong({ rawContent: pastedText });
-            setChords(result.formattedContent);
+            const formatted = formatChords(pastedText);
+            setChords(formatted);
         } catch (error) {
-            console.error("AI formatting failed:", error);
+            console.error("Formatting failed:", error);
             toast({
                 variant: "destructive",
                 title: "Formatting Failed",
-                description: "Could not format chords. Please format manually or try pasting again.",
+                description: "Could not format chords. Please check the text.",
             });
             setChords(pastedText); // Revert to pasted text on failure
         } finally {
@@ -48,22 +74,20 @@ export default function NewSongPage() {
         }
     };
     
-    const handleFormatButtonClick = async () => {
+    const handleFormatButtonClick = () => {
         if (!chords || isFormatting) return;
         setIsFormatting(true);
         const currentContent = chords;
-        setChords("Formatting with AI... please wait.");
         try {
-            const result = await formatSong({ rawContent: currentContent });
-            setChords(result.formattedContent);
+            const formatted = formatChords(currentContent);
+            setChords(formatted);
         } catch (error) {
-            console.error("AI formatting failed:", error);
+            console.error("Formatting failed:", error);
             toast({
                 variant: "destructive",
                 title: "Formatting Failed",
-                description: "Could not format chords. Please format manually or try again.",
+                description: "Could not format chords. Please try again.",
             });
-            setChords(currentContent); // Revert on failure
         } finally {
             setIsFormatting(false);
         }
@@ -97,6 +121,7 @@ export default function NewSongPage() {
         };
         
         try {
+            // Use setDoc for a single, reliable write operation.
             setDocumentNonBlocking(songRef, newSong, { merge: false });
 
             toast({
@@ -104,6 +129,7 @@ export default function NewSongPage() {
                 description: "Your new song has been added successfully.",
             });
             
+            // Redirect after a short delay to allow the write to begin processing.
             setTimeout(() => router.push('/dashboard/songs'), 500);
 
         } catch (error) {
@@ -123,7 +149,7 @@ export default function NewSongPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="font-headline text-2xl">Add a New Song</CardTitle>
-                        <CardDescription>Fill in the details below. Paste lyrics and chords, and we'll use AI to format them for you on paste.</CardDescription>
+                        <CardDescription>Fill in the details below. Paste lyrics and chords, and we'll format them for you on paste.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -156,7 +182,7 @@ export default function NewSongPage() {
                                 id="content"
                                 name="content"
                                 rows={15}
-                                placeholder="Paste your song here and AI will format it..."
+                                placeholder="Paste your song here and we'll format it..."
                                 className="font-code"
                                 required
                                 value={chords}

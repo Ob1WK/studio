@@ -50,15 +50,31 @@ const importSongFlow = ai.defineFlow(
 
     const title = titleMatch ? titleMatch[1].trim() : 'Unknown Title';
     const artist = artistMatch ? artistMatch[1].trim() : 'Unknown Artist';
-    let chords = chordsMatch ? chordsMatch[1] : '';
+    let chordsContent = chordsMatch ? chordsMatch[1] : '';
 
-    // Clean up the chord content: remove HTML tags and HTML entities
-    chords = chords.replace(/<a.*?>/g, '').replace(/<\/a>/g, ''); // remove links
-    chords = chords.replace(/&lt;/g, '<').replace(/&gt;/g, '>'); // decode html entities
-
-    if (!chords) {
+    if (!chordsContent) {
       throw new Error('Could not find chord information on the page.');
     }
+
+    // Clean up the chord content: remove HTML tags and HTML entities
+    chordsContent = chordsContent.replace(/<a.*?>/g, '').replace(/<\/a>/g, ''); // remove links
+    chordsContent = chordsContent.replace(/&lt;/g, '<').replace(/&gt;/g, '>'); // decode html entities
+
+    // Regex to find chords (one or more uppercase letters, optionally with #, b, m, 7, etc.)
+    // This is a simplified regex. A more robust one might be needed for complex chords.
+    const chordRegex = /([A-G](?:#|b)?(?:m|maj|min|dim|aug|sus)?[0-9]*)/g;
+
+    const lines = chordsContent.split('\n');
+    const processedLines = lines.map(line => {
+        // If a line contains lyrics (heuristically: has lowercase letters), don't process it.
+        if (/[a-z]/.test(line)) {
+            return line;
+        }
+        // Otherwise, assume it's a chord line and wrap chords in brackets.
+        return line.replace(chordRegex, '[$1]');
+    });
+
+    const chords = processedLines.join('\n');
 
     return {
       title,

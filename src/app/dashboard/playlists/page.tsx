@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
 import { PlusCircle, Users } from 'lucide-react';
-import type { Playlist } from '@/lib/types';
+import type { Playlist, Song } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -23,19 +23,39 @@ import { Label } from '@/components/ui/label';
 import React, { useState } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { v4 as uuidv4 } from 'uuid';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function PlaylistsPage() {
     const { user } = useUser();
     const firestore = useFirestore();
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedSongs, setSelectedSongs] = useState<string[]>([]);
+    const [dialogOpen, setDialogOpen] = useState(false);
+
 
     const playlistsQuery = useMemoFirebase(() => {
         if (!user) return null;
         return query(collection(firestore, 'users', user.uid, 'playlists'));
     }, [firestore, user]);
 
+    const songsQuery = useMemoFirebase(() => {
+        if (!user) return null;
+        return query(collection(firestore, 'users', user.uid, 'songs'));
+    }, [firestore, user]);
+
     const { data: playlists, isLoading: playlistsLoading } = useCollection<Playlist>(playlistsQuery);
+    const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);
+
+
+    const handleSongSelection = (songId: string) => {
+        setSelectedSongs(prev => 
+            prev.includes(songId) 
+                ? prev.filter(id => id !== songId)
+                : [...prev, songId]
+        );
+    };
 
     const handleCreatePlaylist = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -57,9 +77,9 @@ export default function PlaylistsPage() {
             name,
             description,
             isPublic,
-            songIds: [],
+            songIds: selectedSongs,
             liveSessionId: liveSessionId,
-            currentSongId: '',
+            currentSongId: selectedSongs.length > 0 ? selectedSongs[0] : '',
             transpose: 0,
         };
 
@@ -71,7 +91,8 @@ export default function PlaylistsPage() {
                 const publicDocRef = doc(publicPlaylistsCollectionRef, userDocRef.id);
                 setDocumentNonBlocking(publicDocRef, newPlaylist, { merge: false });
             }
-            document.getElementById('close-dialog')?.click();
+            setDialogOpen(false); // Close dialog on success
+            setSelectedSongs([]); // Reset selection
             router.push(`/dashboard/playlists/${userDocRef.id}`);
         } catch (error) {
             console.error("Error creating playlist:", error);
@@ -87,18 +108,18 @@ export default function PlaylistsPage() {
                     <h1 className="text-3xl font-headline font-bold">My Playlists</h1>
                     <p className="text-muted-foreground">Your collections of songs for worship and rehearsal.</p>
                 </div>
-                <Dialog>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button>
                             <PlusCircle className="mr-2 h-4 w-4" /> Create Playlist
                         </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="sm:max-w-[425px]">
                         <form onSubmit={handleCreatePlaylist}>
                             <DialogHeader>
                                 <DialogTitle>Create New Playlist</DialogTitle>
                                 <DialogDescription>
-                                    Give your new playlist a name and description. You can add songs later.
+                                    Give your new playlist a name and add some songs.
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
@@ -110,6 +131,33 @@ export default function PlaylistsPage() {
                                     <Label htmlFor="description" className="text-right">Description</Label>
                                     <Input id="description" name="description" className="col-span-3" />
                                 </div>
+
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                     <Label className="text-right pt-2">Songs</Label>
+                                     <ScrollArea className="h-40 w-full rounded-md border col-span-3">
+                                        <div className="p-4">
+                                            {songsLoading && <p>Loading songs...</p>}
+                                            {songs && songs.length > 0 ? songs.map(song => (
+                                                <div key={song.id} className="flex items-center space-x-2 mb-2">
+                                                    <Checkbox 
+                                                        id={`song-${song.id}`}
+                                                        onCheckedChange={() => handleSongSelection(song.id)}
+                                                        checked={selectedSongs.includes(song.id)}
+                                                    />
+                                                    <label
+                                                        htmlFor={`song-${song.id}`}
+                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                                    >
+                                                        {song.title}
+                                                    </label>
+                                                </div>
+                                            )) : (
+                                                <p className="text-sm text-muted-foreground">No songs found. <Link href="/dashboard/songs/new" className="underline">Add one!</Link></p>
+                                            )}
+                                        </div>
+                                     </ScrollArea>
+                                </div>
+
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="isPublic" className="text-right">Live Session?</Label>
                                     <div className="col-span-3 flex items-center space-x-2">
@@ -120,7 +168,7 @@ export default function PlaylistsPage() {
                             </div>
                             <DialogFooter>
                                 <DialogClose asChild>
-                                    <Button type="button" variant="secondary" id="close-dialog">Cancel</Button>
+                                    <Button type="button" variant="secondary" onClick={() => setSelectedSongs([])}>Cancel</Button>
                                 </DialogClose>
                                 <Button type="submit" disabled={isSubmitting}>
                                     {isSubmitting ? 'Creating...' : 'Create & Open'}
@@ -167,4 +215,3 @@ export default function PlaylistsPage() {
             )}
         </div>
     );
-}

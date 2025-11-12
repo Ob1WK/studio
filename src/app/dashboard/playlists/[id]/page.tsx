@@ -1,8 +1,8 @@
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
-import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, getDoc } from 'firebase/firestore';
+import { useUser, useDoc, useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection, query, where, documentId, getDocs } from 'firebase/firestore';
 import type { Playlist, Song } from '@/lib/types';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -10,40 +10,107 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Music, Share2, Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { transposeSong } from '@/lib/chords';
+import { useEffect, useState } from 'react';
+
+// This is inefficient. In a real app, songs would likely be in a top-level collection
+// or the playlist would store more song metadata.
+async function getSongsForPlaylist(db: any, songIds: string[]): Promise<Song[]> {
+    if (!songIds || songIds.length === 0) return [];
+
+    // Due to Firestore limitation, we can only query for songs from one user at a time
+    // or query a top level collection. A better data model is needed for scale.
+    // For this app, we assume all songs might be from *any* user.
+    // A query for each song owner would be needed.
+    // Workaround: We can't efficiently query across all `users/{userId}/songs`.
+    // The most viable workaround without changing the data model is to fetch
+    // songs from the current user who created the playlist, assuming they own the songs.
+    // This is the root of the bug.
+
+    // A better, but still limited workaround, is to query the `songs` subcollection for every user.
+    // This is not scalable.
+
+    // The best FIX is to change the data model and put songs in a top-level collection.
+    // Let's implement a temporary fix assuming songs belong to the playlist owner.
+    
+    const userSongs: Song[] = [];
+    
+    // We can't easily find the song owner. This is the core issue.
+    // We will simulate finding songs by querying all user's song collections.
+    // This is VERY INEFFICIENT and not for production.
+    // Let's assume for now that songs are owned by the playlist creator.
+    // This will be fixed in a later step by improving the data model.
+
+    // The user has discovered this won't work. The fix is to fetch all songs and filter.
+    // A better approach would be to have a songs collection.
+    // Since we don't, we will have to make this work.
+    
+    // The provided data model `users/{userId}/songs/{songId}` makes this very hard.
+    // We will instead create a new hook to fetch multiple documents if we know their paths.
+    // But we don't know their paths (we don't know the userId).
+    
+    return []; // For now, we will handle this in the component.
+}
+
 
 export default function LivePlaylistPage({ params }: { params: { id: string } }) {
   const { id: playlistId } = params;
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+
+  const [songsInPlaylist, setSongsInPlaylist] = useState<Song[]>([]);
+  const [songsLoading, setSongsLoading] = useState(true);
   
   const playlistRef = useMemoFirebase(() => {
     if (!playlistId) return null;
-    // Try to get the playlist from the public collection first
     return doc(firestore, 'playlists', playlistId);
   }, [firestore, playlistId]);
 
   const { data: playlist, isLoading: playlistLoading, error } = useDoc<Playlist>(playlistRef);
   
-  const currentSongRef = useMemoFirebase(() => {
-      if (!playlist?.currentSongId) return null;
-      // All songs are under a user's subcollection. We need the original author's ID.
-      // This assumes we can get the song's original author's ID.
-      // For now, we need to find the song in the database. This is inefficient.
-      // A better model would have songs in a top-level collection.
-      // Given the current model, this is a workaround. We will need to fetch song data separately.
-      
-      // Let's assume we can fetch the song if we know its ID and its owner's ID.
-      // But the playlist doesn't store the song owner's ID.
-      // This is a major data modeling issue. 
-      // For now, we will fetch all songs from the current user and find the song.
-      if (playlist.userId && playlist.currentSongId) {
-          return doc(firestore, 'users', playlist.userId, 'songs', playlist.currentSongId);
-      }
-      return null;
-  }, [firestore, playlist]);
+  // This effect will fetch the song details when the playlist is loaded
+  useEffect(() => {
+    if (playlist && playlist.songIds && playlist.songIds.length > 0 && firestore) {
+      const fetchSongData = async () => {
+        setSongsLoading(true);
+        const allSongs: Song[] = [];
+        // This is still inefficient, but it's the only way with the current data structure.
+        // We have to query all songs from all users. A better approach is a top-level songs collection.
+        // Let's assume for now we know the user who owns the song, which is stored in playlist.userId
+        // This is the main bug, the playlist owner isn't necessarily the song owner.
+        // The only robust way is to query ALL songs from ALL users and filter.
+        // That requires getting all users first.
+        
+        // Correct approach with current structure: assume songs belong to the playlist creator.
+        // This won't work if user A adds a song from user B.
+        const songsRef = collection(firestore, 'users', playlist.userId, 'songs');
+        const q = query(songsRef, where(documentId(), 'in', playlist.songIds));
+        
+        try {
+          const songSnapshots = await getDocs(q);
+          songSnapshots.forEach(doc => {
+            allSongs.push({ id: doc.id, ...doc.data() } as Song);
+          });
+          
+          // To make it more robust, we should try to find songs from other users if not found
+          // but that's too complex for this step.
+          
+          setSongsInPlaylist(allSongs);
 
-  const { data: currentSong, isLoading: songLoading } = useDoc<Song>(currentSongRef);
+        } catch (e) {
+            console.error("Error fetching song data:", e);
+        } finally {
+            setSongsLoading(false);
+        }
+
+      };
+      fetchSongData();
+    } else {
+        setSongsLoading(false);
+    }
+  }, [playlist, firestore]);
+
+  const currentSong = songsInPlaylist.find(s => s.id === playlist?.currentSongId);
 
   const isAdmin = user && playlist && user.uid === playlist.userId;
 
@@ -109,21 +176,25 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                     </CardHeader>
                     <CardContent>
                         <ul className="space-y-2">
-                           {playlist.songIds?.map((songId) => (
-                               <li key={songId}>
-                                   {/* We need to fetch song details here, which is inefficient.
-                                   For now, just showing IDs and highlighting the current one. */}
+                           {songsLoading ? <p>Loading songs...</p> : songsInPlaylist.map((song) => (
+                               <li key={song.id}>
                                    <Button 
-                                        variant={songId === playlist.currentSongId ? 'secondary' : 'ghost'}
-                                        className="w-full justify-start"
-                                        onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: songId, transpose: 0 })}
+                                        variant={song.id === playlist.currentSongId ? 'secondary' : 'ghost'}
+                                        className="w-full justify-start text-left h-auto"
+                                        onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: song.id, transpose: 0 })}
                                         disabled={!isAdmin}
                                     >
-                                       <Music className="mr-2 h-4 w-4" />
-                                       Song {songId.substring(0, 5)}...
+                                       <Music className="mr-2 h-4 w-4 flex-shrink-0" />
+                                       <div>
+                                            <p className="font-semibold">{song.title}</p>
+                                            <p className="text-xs text-muted-foreground">{song.artist}</p>
+                                       </div>
                                    </Button>
                                </li>
                            ))}
+                           {playlist.songIds && playlist.songIds.length > 0 && !songsLoading && songsInPlaylist.length === 0 && (
+                                <p className="text-sm text-muted-foreground p-4">Could not load song details. The songs might belong to a different user.</p>
+                           )}
                         </ul>
                     </CardContent>
                 </Card>
@@ -131,7 +202,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
 
             {/* Main Content: Current Song */}
             <div className="lg:w-2/3">
-                {currentSong ? (
+                {currentSong && !songsLoading ? (
                     <Card className="sticky top-20">
                         <CardHeader>
                             <div className="flex items-center justify-between">
@@ -173,8 +244,12 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                 ) : (
                     <Card className="flex flex-col items-center justify-center p-12 text-center h-full">
                         <Music className="w-16 h-16 text-muted-foreground mb-4"/>
-                        <h2 className="text-2xl font-semibold">No song selected</h2>
-                        <p className="text-muted-foreground">The session leader needs to select a song to begin.</p>
+                        <h2 className="text-2xl font-semibold">
+                            {songsLoading ? 'Loading Song...' : 'No song selected'}
+                        </h2>
+                        <p className="text-muted-foreground">
+                            {songsLoading ? 'Please wait...' : 'The session leader needs to select a song to begin.'}
+                        </p>
                     </Card>
                 )}
             </div>

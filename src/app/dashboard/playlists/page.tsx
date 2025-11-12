@@ -84,7 +84,7 @@ export default function PlaylistsPage() {
         
         const liveSessionId = uuidv4();
 
-        const newPlaylist: Omit<Playlist, 'id'> = {
+        const newPlaylistData: Omit<Playlist, 'id'> = {
             userId: user.uid,
             name,
             description,
@@ -93,20 +93,29 @@ export default function PlaylistsPage() {
             liveSessionId: liveSessionId,
             currentSongId: selectedSongs.length > 0 ? selectedSongs[0] : '',
             transpose: 0,
+            isSessionActive: false,
         };
 
         try {
             // Add to the user's private collection
-            const userDocRef = await addDocumentNonBlocking(userPlaylistsCollectionRef, newPlaylist);
+            const userDocRef = await addDocumentNonBlocking(userPlaylistsCollectionRef, newPlaylistData);
+            
+            const playlistId = userDocRef.id;
+
+            // Update the private doc with its own ID for reference
+            const userPlaylistDocRef = doc(firestore, 'users', user.uid, 'playlists', playlistId);
+            setDocumentNonBlocking(userPlaylistDocRef, { id: playlistId }, { merge: true });
+
+
             if (isPublic) {
                 // Add to the public collection with the same ID
                 const publicPlaylistsCollectionRef = collection(firestore, 'playlists');
-                const publicDocRef = doc(publicPlaylistsCollectionRef, userDocRef.id);
-                setDocumentNonBlocking(publicDocRef, newPlaylist, { merge: false });
+                const publicDocRef = doc(publicPlaylistsCollectionRef, playlistId);
+                setDocumentNonBlocking(publicDocRef, { ...newPlaylistData, id: playlistId }, { merge: false });
             }
             setDialogOpen(false); // Close dialog on success
             setSelectedSongs([]); // Reset selection
-            router.push(`/dashboard/playlists/${userDocRef.id}`);
+            router.push(`/playlists/${playlistId}`);
         } catch (error) {
             console.error("Error creating playlist:", error);
         } finally {
@@ -215,7 +224,7 @@ export default function PlaylistsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {playlists?.map((playlist) => (
                     <Card key={playlist.id} className="group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
-                        <Link href={`/dashboard/playlists/${playlist.id}`} className='flex flex-col h-full'>
+                        <Link href={`/playlists/${playlist.id}`} className='flex flex-col h-full'>
                             <div className="relative">
                                 <Image
                                     src={playlist.coverArtUrl || "https://picsum.photos/seed/playlist/400/400"}

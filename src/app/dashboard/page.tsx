@@ -49,7 +49,7 @@ export default function DashboardPage() {
                 {playlists && playlists.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {playlists.map((playlist) => (
-                            <Link href={`/dashboard/playlists/${playlist.id}`} key={playlist.id}>
+                            <Link href={`/playlists/${playlist.id}`} key={playlist.id}>
                                 <Card className="group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
                                     <div className="relative">
                                         <Image
@@ -77,7 +77,9 @@ export default function DashboardPage() {
                     <Card className="flex flex-col items-center justify-center p-12 border-dashed">
                         <ListMusic className="w-12 h-12 text-muted-foreground" />
                         <p className="mt-4 text-muted-foreground">You haven't created any playlists yet.</p>
-                        <Button variant="secondary" className="mt-4">Create a Playlist</Button>
+                        <Button variant="secondary" className="mt-4" asChild>
+                            <Link href="/dashboard/playlists">Create a Playlist</Link>
+                        </Button>
                     </Card>
                 )}
             </section>

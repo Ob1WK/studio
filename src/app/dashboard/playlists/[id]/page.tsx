@@ -15,12 +15,13 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const playlistId = params.id;
 
   const playlistRef = useMemoFirebase(() => {
-    if (!params.id) return null;
+    if (!playlistId) return null;
     // Try to get the playlist from the public collection first
-    return doc(firestore, 'playlists', params.id);
-  }, [firestore, params.id]);
+    return doc(firestore, 'playlists', playlistId);
+  }, [firestore, playlistId]);
 
   const { data: playlist, isLoading: playlistLoading, error } = useDoc<Playlist>(playlistRef);
   
@@ -75,11 +76,13 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
       const nextSongId = playlist.songIds[nextIndex];
       const updatedData = { currentSongId: nextSongId, transpose: 0 }; // Reset transpose on song change
       
-      updateDocumentNonBlocking(playlistRef, updatedData);
+      if(playlistRef) {
+        updateDocumentNonBlocking(playlistRef, updatedData);
+      }
   };
   
   const handleTranspose = (amount: number) => {
-      if (!isAdmin || playlist.transpose === undefined) return;
+      if (!isAdmin || playlist.transpose === undefined || !playlistRef) return;
       const newTranspose = (playlist.transpose || 0) + amount;
       updateDocumentNonBlocking(playlistRef, { transpose: newTranspose });
   };
@@ -113,7 +116,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                                    <Button 
                                         variant={songId === playlist.currentSongId ? 'secondary' : 'ghost'}
                                         className="w-full justify-start"
-                                        onClick={() => isAdmin && updateDocumentNonBlocking(playlistRef, { currentSongId: songId, transpose: 0 })}
+                                        onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: songId, transpose: 0 })}
                                         disabled={!isAdmin}
                                     >
                                        <Music className="mr-2 h-4 w-4" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
-import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Song } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -68,8 +68,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
   
    const handleDeleteSong = () => {
     if (!songRef) return;
-    // Implement delete function if available in firebase helpers
-    // deleteDocumentNonBlocking(songRef);
+    deleteDocumentNonBlocking(songRef);
     toast({
         title: 'Song Deleted',
         description: `"${title}" has been removed.`,

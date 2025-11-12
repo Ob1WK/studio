@@ -15,11 +15,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/logo"
-import { useAuth, useUser, initiateEmailSignIn } from "@/firebase";
+import { useAuth, useUser, initiateEmailSignIn, initiateGoogleSignIn, setDocumentNonBlocking, useFirestore } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +35,24 @@ export default function LoginPage() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     initiateEmailSignIn(auth, email, password);
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const userCredential = await initiateGoogleSignIn(auth);
+      if (userCredential && userCredential.user) {
+        const userRef = doc(firestore, "users", userCredential.user.uid);
+        const userData = {
+          id: userCredential.user.uid,
+          email: userCredential.user.email,
+          username: userCredential.user.displayName || userCredential.user.email,
+          profilePictureUrl: userCredential.user.photoURL || '',
+        };
+        setDocumentNonBlocking(userRef, userData, { merge: true });
+      }
+    } catch (error) {
+      console.error("Error signing in with Google:", error);
+    }
   };
 
   if (isUserLoading || (!isUserLoading && user)) {
@@ -86,7 +106,7 @@ export default function LoginPage() {
               <Button type="submit" className="w-full">
                   Login
               </Button>
-              <Button variant="outline" className="w-full" disabled>
+              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
                   Login with Google
               </Button>
               </div>

@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/logo"
-import { useAuth, useUser, initiateEmailSignUp, setDocumentNonBlocking } from "@/firebase";
+import { useAuth, useUser, initiateEmailSignUp, setDocumentNonBlocking, initiateGoogleSignIn } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 
@@ -50,6 +50,24 @@ export default function SignupPage() {
       }
     } catch (error) {
       console.error("Error signing up:", error);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    try {
+      const userCredential = await initiateGoogleSignIn(auth);
+      if (userCredential && userCredential.user) {
+        const userRef = doc(firestore, "users", userCredential.user.uid);
+        const userData = {
+          id: userCredential.user.uid,
+          email: userCredential.user.email,
+          username: userCredential.user.displayName || userCredential.user.email,
+          profilePictureUrl: userCredential.user.photoURL || '',
+        };
+        setDocumentNonBlocking(userRef, userData, { merge: true });
+      }
+    } catch (error) {
+      console.error("Error signing up with Google:", error);
     }
   };
 
@@ -106,7 +124,7 @@ export default function SignupPage() {
               <Button type="submit" className="w-full">
                 Create an account
               </Button>
-              <Button variant="outline" className="w-full" disabled>
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignup}>
                 Sign up with Google
               </Button>
             </div>

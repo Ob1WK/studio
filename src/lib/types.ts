@@ -35,4 +35,5 @@ export type Playlist = {
   liveSessionId?: string;
   currentSongId?: string;
   transpose?: number;
+  isSessionActive?: boolean; // New field to track live session state
 };

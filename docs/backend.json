@@ -65,6 +65,10 @@
         "originalSongId": {
           "type": "string",
           "description": "If the song is a copy, this is the ID of the original song."
+        },
+        "sharedLink": {
+          "type": "string",
+          "description": "A shortlink or social-sharing feature for quick distribution."
         }
       },
       "required": [
@@ -145,6 +149,11 @@
             "type": "string"
           }
         },
+        "coverArtUrl": {
+          "type": "string",
+          "description": "URL to the playlist's cover art image.",
+          "format": "uri"
+        },
         "liveSessionId": {
             "type": "string",
             "description": "Unique ID for the real-time session room."
@@ -156,6 +165,10 @@
         "transpose": {
             "type": "number",
             "description": "The number of semitones to transpose the current song."
+        },
+        "isSessionActive": {
+            "type": "boolean",
+            "description": "Indicates if the live session for this playlist is currently active."
         }
       },
       "required": [

@@ -1,12 +1,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import type { Song } from '@/lib/types';
+import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, useCollection } from '@/firebase';
+import { doc, collection, query } from 'firebase/firestore';
+import type { Song, Variation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, Trash2 } from 'lucide-react';
+import { Save, Trash2, GitBranchPlus, User as UserIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { AddVariationDialog } from '@/components/AddVariationDialog';
+import Link from 'next/link';
 
 export default function SongDetailPage({ params }: { params: { id: string } }) {
   const { id: songId } = params;
@@ -38,11 +40,16 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
 
   const songRef = useMemoFirebase(() => {
     if (!songId) return null;
-    // Songs are now in a top-level collection
     return doc(firestore, 'songs', songId);
   }, [firestore, songId]);
 
+  const variationsQuery = useMemoFirebase(() => {
+    if (!songId) return null;
+    return query(collection(firestore, 'songs', songId, 'variations'));
+  }, [firestore, songId]);
+
   const { data: song, isLoading, error } = useDoc<Song>(songRef);
+  const { data: variations, isLoading: variationsLoading } = useCollection<Variation>(variationsQuery);
 
   useEffect(() => {
     if (song) {
@@ -92,7 +99,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="container mx-auto max-w-4xl">
-      <Card>
+      <Card className="mb-8">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -144,7 +151,41 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
         </CardContent>
       </Card>
 
-      {/* Community variations can be re-implemented here later */}
+      <section className="mt-8">
+        <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-headline font-semibold">Community Variations</h2>
+            {user && <AddVariationDialog songId={songId} />}
+        </div>
+        {variationsLoading ? (
+            <p>Loading variations...</p>
+        ) : variations && variations.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+                {variations.map(variation => (
+                    <Card key={variation.id}>
+                        <CardHeader>
+                            <CardTitle className="text-lg font-semibold">Variation by <Link href={`/profile/${variation.userId}`} className="underline">{variation.userId}</Link></CardTitle>
+                            <CardDescription className="flex items-center gap-2 text-sm">
+                                <UserIcon className="h-3 w-3" />
+                                Submitted on {new Date(variation.submissionDate).toLocaleDateString()}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <pre className="font-code text-sm whitespace-pre-wrap leading-relaxed bg-secondary p-4 rounded-md max-h-60 overflow-auto">
+                                {variation.variationText.trim()}
+                            </pre>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        ) : (
+            <Card className="text-center p-12 border-dashed">
+                <GitBranchPlus className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="text-xl font-semibold mt-4">No Variations Yet</h3>
+                <p className="text-muted-foreground mt-2">Be the first to add a variation to this song!</p>
+                {user && <AddVariationDialog songId={songId} />}
+            </Card>
+        )}
+      </section>
     </div>
   );
 }

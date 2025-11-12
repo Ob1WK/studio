@@ -37,6 +37,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function PlaylistsPage() {
     const { user } = useUser();
@@ -82,8 +83,10 @@ export default function PlaylistsPage() {
 
         const userPlaylistsCollectionRef = collection(firestore, 'users', user.uid, 'playlists');
         
-        const liveSessionId = uuidv4();
         const playlistId = uuidv4();
+        
+        // Select a random playlist cover art
+        const randomCoverArt = PlaceHolderImages.filter(img => img.id.startsWith('playlist-cover-'))[Math.floor(Math.random() * PlaceHolderImages.filter(img => img.id.startsWith('playlist-cover-')).length)];
 
 
         const newPlaylistData: Playlist = {
@@ -93,7 +96,8 @@ export default function PlaylistsPage() {
             description,
             isPublic,
             songIds: selectedSongs,
-            liveSessionId: liveSessionId,
+            coverArtUrl: randomCoverArt?.imageUrl || "https://picsum.photos/seed/playlist/400/400", // Assign random cover art
+            liveSessionId: uuidv4(), // Generate a new live session ID
             currentSongId: selectedSongs.length > 0 ? selectedSongs[0] : '',
             transpose: 0,
             isSessionActive: false,

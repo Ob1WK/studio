@@ -21,7 +21,6 @@ export type Song = {
   chords: string;
   uploadDate: string;
   sharedLink?: string;
-  variations?: Variation[];
   originalSongId?: string; // To trace back a copied song
 };
 

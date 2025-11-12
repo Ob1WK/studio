@@ -10,6 +10,7 @@ import { Copy, GitBranchPlus, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { v4 as uuidv4 } from 'uuid';
+import Link from 'next/link';
 
 export default function UserProfilePage({ params }: { params: { userId: string } }) {
   const { userId } = params;
@@ -58,7 +59,7 @@ export default function UserProfilePage({ params }: { params: { userId: string }
       id: songId,
       userId: currentUser.uid, // Set current user as owner
       uploadDate: new Date().toISOString(),
-      variations: [], // Start with no variations
+      // Variations are not copied directly, as they are a subcollection
       originalSongId: song.id, // Keep track of the original
     };
 
@@ -71,9 +72,9 @@ export default function UserProfilePage({ params }: { params: { userId: string }
     router.push(`/dashboard/songs/${songId}`);
   };
 
+  // The "Create Variation" button will now navigate to the song detail page
+  // where the AddVariationDialog can be used.
   const handleCreateVariation = (songId: string) => {
-    // For now, this just navigates to the song page where variation logic would live.
-    // This could be expanded to create a variation document directly.
     router.push(`/dashboard/songs/${songId}`);
   }
 

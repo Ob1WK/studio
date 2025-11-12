@@ -1,0 +1,249 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the HolyHarmonies application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "username": {
+          "type": "string",
+          "description": "User's display name."
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL to the user's profile picture.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "username"
+      ]
+    },
+    "Song": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Song",
+      "type": "object",
+      "description": "Represents a song with chords uploaded by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Song entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Song)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the song."
+        },
+        "artist": {
+          "type": "string",
+          "description": "Artist of the song."
+        },
+        "chords": {
+          "type": "string",
+          "description": "The song's chord progressions and lyrics."
+        },
+        "uploadDate": {
+          "type": "string",
+          "description": "Date and time when the song was uploaded.",
+          "format": "date-time"
+        },
+        "sharedLink": {
+          "type": "string",
+          "description": "Shareable link for the song."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "artist",
+        "chords",
+        "uploadDate"
+      ]
+    },
+    "Variation": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Variation",
+      "type": "object",
+      "description": "Represents a user-submitted variation of an existing song.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Variation entity."
+        },
+        "songId": {
+          "type": "string",
+          "description": "Reference to Song. (Relationship: Song 1:N Variation)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Variation)"
+        },
+        "variationText": {
+          "type": "string",
+          "description": "The user-submitted variation of the song."
+        },
+        "submissionDate": {
+          "type": "string",
+          "description": "Date and time when the variation was submitted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "songId",
+        "userId",
+        "variationText",
+        "submissionDate"
+      ]
+    },
+    "Playlist": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Playlist",
+      "type": "object",
+      "description": "Represents a user-created playlist of songs.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Playlist entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Playlist)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the playlist."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the playlist."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Indicates whether the playlist is public or private."
+        },
+        "songIds": {
+          "type": "array",
+          "description": "References to Songs in the playlist. (Relationship: Playlist N:N Song)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "isPublic",
+        "songIds"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profile information. Accessible only by the user with matching userId.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/songs/{songId}",
+        "definition": {
+          "entityName": "Song",
+          "schema": {
+            "$ref": "#/backend/entities/Song"
+          },
+          "description": "Stores songs uploaded by a user. Includes the userId of the uploader for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "songId",
+              "description": "The unique identifier of the song."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/songs/{songId}/variations/{variationId}",
+        "definition": {
+          "entityName": "Variation",
+          "schema": {
+            "$ref": "#/backend/entities/Variation"
+          },
+          "description": "Stores variations of a song submitted by users. Includes the userId of the submitter for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "songId",
+              "description": "The unique identifier of the song."
+            },
+            {
+              "name": "variationId",
+              "description": "The unique identifier of the variation."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playlists/{playlistId}",
+        "definition": {
+          "entityName": "Playlist",
+          "schema": {
+            "$ref": "#/backend/entities/Playlist"
+          },
+          "description": "Stores user-created playlists. Includes the userId of the playlist creator for authorization independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "playlistId",
+              "description": "The unique identifier of the playlist."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support HolyHarmonies' core features—song uploads, variation submissions, playlists, and sharing—while adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. User-owned data is organized under `/users/{userId}` for clear ownership. Songs are also organized under the respective user. Variations are kept within the songs to maintain referential integrity. Playlists are user-specific to manage their personal lists efficiently. To support sharing, each song contains a `sharedLink` field, facilitating quick distribution.\n\n**Authorization Independence:** User-specific data like songs, variations, and playlists are nested under `/users/{userId}`, eliminating the need for complex authorization rules involving parent document lookups. The `userId` within songs, variations, and playlists are used in rules to independently verify ownership.\n\n**Structural Segregation:** Each collection serves a distinct purpose with homogenous security requirements. `/users/{userId}` contains only user-specific data accessible by the user.\n\n**QAPs Support:** The structure supports listing songs and playlists securely because each is associated with a specific user, enabling rules to filter based on `request.auth.uid` without relying on data lookups. Public/private playlist distinction is achieved with the `isPublic` field, allowing secure listing of public playlists."
+  }
+}

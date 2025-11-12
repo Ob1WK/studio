@@ -104,9 +104,9 @@ export default function PlaylistsPage() {
         };
 
         try {
-            // Add to the user's private collection
+            // Add to the user's private collection (now saving full data)
             const userDocRef = doc(userPlaylistsCollectionRef, playlistId);
-            setDocumentNonBlocking(userDocRef, {id: playlistId, name: name}, { merge: true });
+            setDocumentNonBlocking(userDocRef, newPlaylistData, { merge: false });
 
 
             if (isPublic) {

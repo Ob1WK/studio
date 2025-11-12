@@ -46,7 +46,9 @@ const importSongFlow = ai.defineFlow(
     // This is brittle and depends on lacuerda.net's HTML structure.
     const titleMatch = html.match(/<div id="_titulo">(.*?)<\/div>/);
     const artistMatch = html.match(/<div id="_artista">(?:<a.*?>)?(.*?)(?:<\/a>)?<\/div>/);
-    const chordsMatch = html.match(/<pre id="_ce" class="ce">([\s\S]*?)<\/pre>/);
+    // Make the regex for chords more flexible by looking for an id that starts with _ce
+    const chordsMatch = html.match(/<pre id="_ce[^"]*"[^>]*>([\s\S]*?)<\/pre>/);
+
 
     const title = titleMatch ? titleMatch[1].trim() : 'Unknown Title';
     const artist = artistMatch ? artistMatch[1].trim() : 'Unknown Artist';
@@ -67,14 +69,18 @@ const importSongFlow = ai.defineFlow(
     const lines = chordsContent.split('\n');
     const processedLines = lines.map(line => {
         // If a line contains lyrics (heuristically: has lowercase letters), don't process it.
-        if (/[a-z]/.test(line)) {
+        if (/[a-z]/.test(line) && !line.includes('<i>')) {
+            return line;
+        }
+        // Also skip lines that are just comments or instructions
+        if (line.includes('<i>') || line.trim().startsWith('---')) {
             return line;
         }
         // Otherwise, assume it's a chord line and wrap chords in brackets.
         return line.replace(chordRegex, '[$1]');
     });
 
-    const chords = processedLines.join('\n');
+    const chords = processedLines.join('\n').replace(/<i>/g, '').replace(/<\/i>/g, ''); // Clean up any remaining tags
 
     return {
       title,

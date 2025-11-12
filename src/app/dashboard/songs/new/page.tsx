@@ -7,8 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useUser, useFirestore, setDoc, doc } from "@/firebase";
 import type { Song } from "@/lib/types";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -16,7 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // This regex helps identify if a word is likely a chord.
 // It looks for standard chord patterns (e.g., C, Gm, F#m7, G/B).
-const CHORD_REGEX = /^[A-G][#b]?(m|maj|dim|aug|sus|add|m7|M7|7)?[0-9]?(\/[A-G][#b]?)?$/;
+const CHORD_REGEX = /^[A-G][#b]?(m|maj|dim|aug|sus|add|m7|M7|7|b5)?[0-9]?(\/[A-G][#b]?)?$/;
 
 const isChordLine = (line: string): boolean => {
     const words = line.trim().split(/\s+/);
@@ -56,41 +55,45 @@ export default function NewSongPage() {
     
     const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const pastedText = e.clipboardData.getData('text');
+        if (!pastedText) return;
         e.preventDefault();
+        
         setIsFormatting(true);
-        try {
-            const formatted = formatChords(pastedText);
-            setChords(formatted);
-        } catch (error) {
-            console.error("Formatting failed:", error);
-            toast({
-                variant: "destructive",
-                title: "Formatting Failed",
-                description: "Could not format chords. Please check the text.",
-            });
-            setChords(pastedText); // Revert to pasted text on failure
-        } finally {
-            setIsFormatting(false);
-        }
+        setTimeout(() => {
+            try {
+                const formatted = formatChords(pastedText);
+                setChords(formatted);
+                toast({
+                    title: "Chords Formatted",
+                    description: "Chords have been automatically detected and formatted.",
+                });
+            } catch (error) {
+                console.error("Formatting failed:", error);
+                setChords(pastedText); // Revert to pasted text on failure
+            } finally {
+                setIsFormatting(false);
+            }
+        }, 50); 
     };
     
     const handleFormatButtonClick = () => {
         if (!chords || isFormatting) return;
         setIsFormatting(true);
-        const currentContent = chords;
-        try {
-            const formatted = formatChords(currentContent);
-            setChords(formatted);
-        } catch (error) {
-            console.error("Formatting failed:", error);
-            toast({
-                variant: "destructive",
-                title: "Formatting Failed",
-                description: "Could not format chords. Please try again.",
-            });
-        } finally {
-            setIsFormatting(false);
-        }
+        setTimeout(() => {
+            try {
+                const formatted = formatChords(chords);
+                setChords(formatted);
+            } catch (error) {
+                console.error("Formatting failed:", error);
+                toast({
+                    variant: "destructive",
+                    title: "Formatting Failed",
+                    description: "Could not automatically format chords. Please check the text.",
+                });
+            } finally {
+                setIsFormatting(false);
+            }
+        }, 50);
     }
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -120,17 +123,26 @@ export default function NewSongPage() {
             variations: [],
         };
         
-        // Use setDoc for a single, reliable write operation.
-        setDocumentNonBlocking(songRef, newSong, { merge: false });
+        try {
+            // Use await with setDoc to ensure the write operation completes.
+            await setDoc(songRef, newSong, { merge: false });
 
-        toast({
-            title: "Song Submitted!",
-            description: "Your new song has been added successfully.",
-        });
-        
-        // Redirect after a short delay to allow the write to begin processing.
-        setTimeout(() => router.push('/dashboard/songs'), 500);
+            toast({
+                title: "Song Saved!",
+                description: "Your new song has been saved successfully to the server.",
+            });
+            
+            router.push('/dashboard/songs');
 
+        } catch (error) {
+            console.error("Error saving song: ", error);
+            toast({
+                variant: "destructive",
+                title: "Save Failed",
+                description: "There was a problem saving your song to the server.",
+            });
+            setIsSubmitting(false);
+        }
     }
 
     return (

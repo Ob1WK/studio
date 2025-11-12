@@ -54,6 +54,7 @@ export * from './error-emitter';
 export { 
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
-    doc
+    doc,
+    setDoc
 };
 export type { Auth, User, Firestore };

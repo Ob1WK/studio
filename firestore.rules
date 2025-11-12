@@ -1,73 +1,40 @@
-/**
- * @fileOverview Firestore Security Rules for HolyHarmonies.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for writes, but allows public read access
- * for community features like exploring songs and user profiles.
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile information. Readable by all, writable by owner.
- * - /songs/{songId}: Stores all songs. Readable by all, writable by owner.
- * - /songs/{songId}/variations/{variationId}: Stores variations. Readable by all, writable by owner.
- * - /users/{userId}/playlists/{playlistId}: Stores private references to user-created playlists.
- * - /playlists/{playlistId}: Stores public playlists for sharing and real-time sessions.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User profiles are public to read, but only the owner can change their profile.
+    // Users can read their own profile, and all users can read any profile.
+    // Users can only write to their own profile.
     match /users/{userId} {
-      allow get, list: if true;
-      allow create, update, delete: if isOwner(userId);
+      allow read: if true; // Public read for profiles
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Songs are public to read. Only the owner can create, update or delete their songs.
+
+    // Songs are publicly readable. Only the owner can create, update, or delete.
     match /songs/{songId} {
-      allow get, list: if true;
-      allow create: if request.resource.data.userId == request.auth.uid;
-      allow update, delete: if resource.data.userId == request.auth.uid;
-      
-        // Variations are public to read. Only the variation owner can manage it.
-        match /variations/{variationId} {
-           allow get, list: if true;
-           allow create: if request.resource.data.userId == request.auth.uid;
-           allow update, delete: if resource.data.userId == request.auth.uid;
-        }
+      allow read: if true; // Public read for songs
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // Variations are publicly readable. Only the owner can create, update, or delete.
+      match /variations/{variationId} {
+        allow read: if true; // Public read for variations
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+        allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      }
     }
 
-    // Users can only manage their own private playlist data.
+    // Private playlists (under /users/{userId}/playlists) are only accessible by the owner.
     match /users/{userId}/playlists/{playlistId} {
-      allow read, list, create, delete: if isOwner(userId);
-      allow update: if isOwner(userId) && (
-        resource.data.userId == userId ||
-        get(/databases/$(database)/documents/playlists/$(playlistId)).data.userId == userId
-      );
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Public playlists collection for sharing.
+    // Public playlists (top-level /playlists/{playlistId}) are publicly readable if isPublic is true.
+    // Only the owner (matching userId in the playlist data) can create, update, or delete.
     match /playlists/{playlistId} {
-      // Anyone can read a public playlist to join a session.
-      allow get: if get(/databases/$(database)/documents/playlists/$(playlistId)).data.isPublic == true;
-      
-      // Only the owner can create/update the public playlist.
-      allow create: if request.resource.data.userId == request.auth.uid;
-      allow update: if get(/databases/$(database)/documents/playlists/$(playlistId)).data.userId == request.auth.uid;
-      
-      // Only the owner can delete their public playlist.
-      allow delete: if resource.data.userId == request.auth.uid;
-      
-      // Do not allow listing of all public playlists.
-      allow list: if false;
-    }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+      allow read: if resource.data.isPublic == true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
   }
 }

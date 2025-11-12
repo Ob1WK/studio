@@ -246,7 +246,7 @@ export default function PlaylistsPage() {
                             </div>
                             <CardHeader className="p-4 z-10 -mt-12">
                                 <CardTitle className="font-headline text-lg text-white">{playlist.name}</CardTitle>
-                                <CardDescription className="text-sm text-gray-300">{playlist.songIds.length} songs</CardDescription>
+                                <CardDescription className="text-sm text-gray-300">{(playlist.songIds?.length || 0)} songs</CardDescription>
                             </CardHeader>
                              <CardContent className="p-4 pt-0 flex-grow">
                                 <p className="text-muted-foreground text-sm">{playlist.description}</p>

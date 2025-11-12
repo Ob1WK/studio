@@ -12,11 +12,11 @@ import Link from 'next/link';
 import { transposeSong } from '@/lib/chords';
 
 export default function LivePlaylistPage({ params }: { params: { id: string } }) {
+  const { id: playlistId } = params;
   const { user } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
-  const playlistId = params.id;
-
+  
   const playlistRef = useMemoFirebase(() => {
     if (!playlistId) return null;
     // Try to get the playlist from the public collection first

@@ -8,11 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useUser, useFirestore, setDocumentNonBlocking } from "@/firebase";
-import { doc, collection } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import type { Song } from "@/lib/types";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { formatSong } from "@/ai/flows/format-song-flow";
 
 export default function NewSongPage() {
     const { toast } = useToast();
@@ -24,42 +25,48 @@ export default function NewSongPage() {
     const [artist, setArtist] = useState('');
     const [chords, setChords] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isFormatting, setIsFormatting] = useState(false);
 
-    const formatChords = (rawText: string): string => {
-        const lines = rawText.split('\n');
-        const formattedLines = lines.map(line => {
-            // A line is considered a chord line if it's not empty and contains
-            // characters typically found in chords, and few lowercase letters.
-            // This regex is a heuristic. It looks for common chord patterns.
-            const chordLineRegex = /^[A-G][#b]?(m|maj|min|dim|aug|sus|add|M)?[0-9]?(\/[A-G][#b]?)?/;
-            const containsChords = chordLineRegex.test(line.trim());
-            const hasLowercase = /[a-z]/.test(line);
-
-            if (containsChords && !hasLowercase) {
-                // This is likely a chord line. Wrap each "word" (chord) in brackets.
-                return line.trim().replace(/(\S+)/g, '[$1]');
-            }
-            // Otherwise, it's a lyric line or something else, return as is.
-            return line;
-        });
-        return formattedLines.join('\n');
-    };
-
-    const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const rawValue = e.target.value;
-        setChords(rawValue);
-    };
-
-    const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
         const pastedText = e.clipboardData.getData('text');
-        const formattedText = formatChords(pastedText);
-        setChords(formattedText);
         e.preventDefault();
+        setIsFormatting(true);
+        setChords("Formatting with AI... please wait.");
+        try {
+            const result = await formatSong({ rawContent: pastedText });
+            setChords(result.formattedContent);
+        } catch (error) {
+            console.error("AI formatting failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Formatting Failed",
+                description: "Could not format chords. Please format manually or try pasting again.",
+            });
+            setChords(pastedText); // Revert to pasted text on failure
+        } finally {
+            setIsFormatting(false);
+        }
     };
     
-    const handleFormatButtonClick = () => {
-        const formattedText = formatChords(chords);
-        setChords(formattedText);
+    const handleFormatButtonClick = async () => {
+        if (!chords || isFormatting) return;
+        setIsFormatting(true);
+        const currentContent = chords;
+        setChords("Formatting with AI... please wait.");
+        try {
+            const result = await formatSong({ rawContent: currentContent });
+            setChords(result.formattedContent);
+        } catch (error) {
+            console.error("AI formatting failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Formatting Failed",
+                description: "Could not format chords. Please format manually or try again.",
+            });
+            setChords(currentContent); // Revert on failure
+        } finally {
+            setIsFormatting(false);
+        }
     }
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -75,9 +82,7 @@ export default function NewSongPage() {
             setIsSubmitting(false);
             return;
         }
-
-        // Apply formatting one last time on save
-        const finalChords = formatChords(chords);
+        
         const songId = uuidv4();
         const songRef = doc(firestore, 'users', user.uid, 'songs', songId);
 
@@ -86,13 +91,12 @@ export default function NewSongPage() {
             userId: user.uid,
             title,
             artist,
-            chords: finalChords,
+            chords: chords,
             uploadDate: new Date().toISOString(),
             variations: [],
         };
         
         try {
-            // Use setDocumentNonBlocking for a single, reliable write operation.
             setDocumentNonBlocking(songRef, newSong, { merge: false });
 
             toast({
@@ -100,7 +104,6 @@ export default function NewSongPage() {
                 description: "Your new song has been added successfully.",
             });
             
-            // Redirect after a short delay to allow optimistic update to process
             setTimeout(() => router.push('/dashboard/songs'), 500);
 
         } catch (error) {
@@ -110,9 +113,7 @@ export default function NewSongPage() {
                 title: "Submission Error",
                 description: "There was a problem saving your song.",
             });
-        } finally {
-            // We keep submitting state until redirect happens
-            // setIsSubmitting(false);
+             setIsSubmitting(false);
         }
     }
 
@@ -122,7 +123,7 @@ export default function NewSongPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="font-headline text-2xl">Add a New Song</CardTitle>
-                        <CardDescription>Fill in the details below. You can paste lyrics with chords from sites like LaCuerda.net and they will be auto-formatted on paste or save.</CardDescription>
+                        <CardDescription>Fill in the details below. Paste lyrics and chords, and we'll use AI to format them for you on paste.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -155,27 +156,24 @@ export default function NewSongPage() {
                                 id="content"
                                 name="content"
                                 rows={15}
-                                placeholder="Paste your song here...
-
-C#m7        F#7
-Él es Jesús Hijo de Dios
-        A            G#7
-Y en El nada se puede perder
-
-... and it will be formatted on paste or save."
+                                placeholder="Paste your song here and AI will format it..."
                                 className="font-code"
                                 required
                                 value={chords}
-                                onChange={handleContentChange}
+                                onChange={(e) => setChords(e.target.value)}
                                 onPaste={handlePaste}
+                                disabled={isFormatting}
                             />
                             <p className="text-sm text-muted-foreground">
-                                Chords will be automatically placed into `[Brackets]` on save or paste. You can also <Button variant="link" type="button" onClick={handleFormatButtonClick} className="p-0 h-auto">format manually</Button>.
+                                Chords will be automatically placed into `[Brackets]` on paste. You can also <Button variant="link" type="button" onClick={handleFormatButtonClick} className="p-0 h-auto" disabled={isFormatting}>
+                                    {isFormatting ? <Loader2 className="mr-2 animate-spin" /> : null}
+                                    format manually
+                                </Button>.
                             </p>
                         </div>
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" type="button" onClick={() => router.back()} disabled={isSubmitting}>Cancel</Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || isFormatting}>
                                 {isSubmitting && <Loader2 className="mr-2 animate-spin" />}
                                 {isSubmitting ? "Saving..." : "Save Song"}
                             </Button>

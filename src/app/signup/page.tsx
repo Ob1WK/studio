@@ -17,15 +17,19 @@ import { Logo } from "@/components/logo"
 import { useAuth, useUser, initiateEmailSignUp, setDocumentNonBlocking, initiateGoogleSignIn } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -35,6 +39,7 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSigningUp(true);
     try {
       const userCredential = await initiateEmailSignUp(auth, email, password);
 
@@ -48,12 +53,20 @@ export default function SignupPage() {
         };
         setDocumentNonBlocking(userRef, userData, { merge: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing up:", error);
+      toast({
+        variant: "destructive",
+        title: "Sign Up Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
   const handleGoogleSignup = async () => {
+    setIsSigningUp(true);
     try {
       const userCredential = await initiateGoogleSignIn(auth);
       if (userCredential && userCredential.user) {
@@ -66,8 +79,15 @@ export default function SignupPage() {
         };
         setDocumentNonBlocking(userRef, userData, { merge: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing up with Google:", error);
+      toast({
+        variant: "destructive",
+        title: "Google Sign Up Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsSigningUp(false);
     }
   };
 
@@ -92,12 +112,13 @@ export default function SignupPage() {
             <div className="grid gap-4">
               <div className="grid gap-2">
                   <Label htmlFor="full-name">Full name</Label>
-                  <Input 
+                  <Input
                     id="full-name"
-                    placeholder="John Doe" 
-                    required 
+                    placeholder="John Doe"
+                    required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    disabled={isSigningUp}
                   />
               </div>
               <div className="grid gap-2">
@@ -109,22 +130,26 @@ export default function SignupPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isSigningUp}
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="password">Password</Label>
-                <Input 
-                  id="password" 
+                <Input
+                  id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isSigningUp}
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isSigningUp}>
+                {isSigningUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create an account
               </Button>
-              <Button variant="outline" className="w-full" onClick={handleGoogleSignup}>
+              <Button variant="outline" className="w-full" onClick={handleGoogleSignup} disabled={isSigningUp}>
+                {isSigningUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign up with Google
               </Button>
             </div>

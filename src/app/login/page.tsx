@@ -17,14 +17,18 @@ import { Label } from "@/components/ui/label"
 import { Logo } from "@/components/logo"
 import { useAuth, useUser, initiateEmailSignIn, initiateGoogleSignIn, setDocumentNonBlocking, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -32,12 +36,25 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    initiateEmailSignIn(auth, email, password);
+    setIsLoggingIn(true);
+    try {
+      await initiateEmailSignIn(auth, email, password);
+    } catch (error: any) {
+      console.error("Error logging in:", error);
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
+    setIsLoggingIn(true);
     try {
       const userCredential = await initiateGoogleSignIn(auth);
       if (userCredential && userCredential.user) {
@@ -50,8 +67,15 @@ export default function LoginPage() {
         };
         setDocumentNonBlocking(userRef, userData, { merge: true });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in with Google:", error);
+      toast({
+        variant: "destructive",
+        title: "Google Login Failed",
+        description: error.message || "An unexpected error occurred.",
+      });
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -83,6 +107,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoggingIn}
                   />
               </div>
               <div className="grid gap-2">
@@ -95,18 +120,21 @@ export default function LoginPage() {
                       Forgot your password?
                   </Link>
                   </div>
-                  <Input 
-                    id="password" 
-                    type="password" 
-                    required 
+                  <Input
+                    id="password"
+                    type="password"
+                    required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoggingIn}
                   />
               </div>
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isLoggingIn}>
+                  {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Login
               </Button>
-              <Button variant="outline" className="w-full" onClick={handleGoogleLogin}>
+              <Button variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoggingIn}>
+                  {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Login with Google
               </Button>
               </div>

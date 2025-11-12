@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "user-avatar-1",
+      "description": "User avatar 1",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjI5MzU5MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-2",
+      "description": "User avatar 2",
+      "imageUrl": "https://images.unsplash.com/photo-1521119989659-a83eee488004?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjI5MzU5MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "user-avatar-3",
+      "description": "User avatar 3",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjI5MzU5MTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait"
+    },
+    {
+      "id": "playlist-cover-1",
+      "description": "Sunday Morning Worship playlist cover",
+      "imageUrl": "https://images.unsplash.com/photo-1496185524395-81f295f4859e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxjaHVyY2glMjB3b3JzaGlwfGVufDB8fHx8MTc2Mjg3NDkzMHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "church worship"
+    },
+    {
+      "id": "playlist-cover-2",
+      "description": "Rehearsal Setlist playlist cover",
+      "imageUrl": "https://images.unsplash.com/photo-1605709355253-07265c27e2cc?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxtdXNpYyUyMHNoZWV0fGVufDB8fHx8MTc2MjkxMzc1NHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "music sheet"
+    },
+    {
+      "id": "playlist-cover-3",
+      "description": "Acoustic Session playlist cover",
+      "imageUrl": "https://images.unsplash.com/photo-1610557607773-51db1458e1c9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxhY291c3RpYyUyMGd1aXRhcnxlbnwwfHx8fDE3NjI5MTczMjl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "acoustic guitar"
+    },
+    {
+      "id": "song-art-1",
+      "description": "Abstract art for a song",
+      "imageUrl": "https://images.unsplash.com/photo-1604076947037-d909e2f10fca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxhYnN0cmFjdCUyMGxpZ2h0fGVufDB8fHx8MTc2Mjk1Njc3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract light"
+    }
+  ]
 }

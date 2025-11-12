@@ -10,12 +10,50 @@ import { useRouter } from "next/navigation";
 import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
 import type { Song } from "@/lib/types";
+import { useState } from "react";
+import { importSong } from "@/ai/flows/import-song-flow";
+import { Loader2 } from "lucide-react";
 
 export default function NewSongPage() {
     const { toast } = useToast();
     const router = useRouter();
     const { user } = useUser();
     const firestore = useFirestore();
+
+    const [title, setTitle] = useState('');
+    const [artist, setArtist] = useState('');
+    const [chords, setChords] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+
+
+    const handleImport = async (url: string) => {
+        if (!url.includes('acordes.lacuerda.net')) {
+            return;
+        }
+        setIsImporting(true);
+        try {
+            const songData = await importSong({ url });
+            if (songData) {
+                setTitle(songData.title);
+                setArtist(songData.artist);
+                setChords(songData.chords);
+                toast({
+                    title: "Song Imported!",
+                    description: "The song details have been filled in. Please review and save.",
+                });
+            }
+        } catch (error) {
+            console.error("Error importing song:", error);
+            toast({
+                variant: "destructive",
+                title: "Import Failed",
+                description: "Could not import the song from the provided URL.",
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -28,11 +66,6 @@ export default function NewSongPage() {
             });
             return;
         }
-
-        const formData = new FormData(event.currentTarget);
-        const title = formData.get('title') as string;
-        const artist = formData.get('artist') as string;
-        const chords = formData.get('content') as string;
 
         const songsCollectionRef = collection(firestore, 'users', user.uid, 'songs');
 
@@ -52,7 +85,7 @@ export default function NewSongPage() {
             description: "Your new song has been added successfully.",
         });
         
-        router.push('/dashboard');
+        router.push('/dashboard/songs');
     }
 
     return (
@@ -61,17 +94,47 @@ export default function NewSongPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="font-headline text-2xl">Add a New Song</CardTitle>
-                        <CardDescription>Fill in the details below to share a new song with the community.</CardDescription>
+                        <CardDescription>Fill in the details below, or import a song from a LaCuerda.net URL.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        <div className="space-y-2 relative">
+                            <Label htmlFor="import-url">Import from LaCuerda.net</Label>
+                            <Input 
+                                id="import-url" 
+                                name="import-url" 
+                                placeholder="Paste a URL from acordes.lacuerda.net..." 
+                                onChange={(e) => handleImport(e.target.value)}
+                                disabled={isImporting}
+                            />
+                             {isImporting && (
+                                <div className="absolute right-2 top-1/2 mt-1">
+                                    <Loader2 className="animate-spin" />
+                                </div>
+                            )}
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label htmlFor="title">Song Title</Label>
-                                <Input id="title" name="title" placeholder="e.g., Amazing Grace" required />
+                                <Input 
+                                    id="title" 
+                                    name="title" 
+                                    placeholder="e.g., Amazing Grace" 
+                                    required 
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="artist">Artist</Label>
-                                <Input id="artist" name="artist" placeholder="e.g., John Newton" required />
+                                <Input 
+                                    id="artist" 
+                                    name="artist" 
+                                    placeholder="e.g., John Newton" 
+                                    required 
+                                    value={artist}
+                                    onChange={(e) => setArtist(e.target.value)}
+                                />
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -83,6 +146,8 @@ export default function NewSongPage() {
                                 placeholder="[G]Amazing grace how [C]sweet the sound..."
                                 className="font-code"
                                 required
+                                value={chords}
+                                onChange={(e) => setChords(e.target.value)}
                             />
                             <p className="text-sm text-muted-foreground">
                                 Use square brackets for chords, e.g., `[C]`. They will be displayed above the lyrics.

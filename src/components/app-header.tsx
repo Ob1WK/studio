@@ -1,5 +1,6 @@
+'use client';
 import Link from 'next/link';
-import { Menu, Music, ListMusic, PlusCircle, User, LogOut } from 'lucide-react';
+import { Menu, Music, LogOut, PlusCircle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,8 +13,16 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from './logo';
+import { useAuth, useUser } from '@/firebase';
 
 export function AppHeader() {
+  const auth = useAuth();
+  const { user } = useUser();
+
+  const handleLogout = () => {
+    auth.signOut();
+  };
+
   return (
     <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 z-50">
       <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
@@ -85,14 +94,14 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="icon" className="rounded-full">
               <Avatar>
-                <AvatarImage src="https://picsum.photos/seed/avatar1/200/200" alt="@user" data-ai-hint="person portrait"/>
-                <AvatarFallback>JD</AvatarFallback>
+                <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/avatar1/200/200"} alt={user?.displayName || "User"} data-ai-hint="person portrait"/>
+                <AvatarFallback>{user?.displayName?.substring(0,2) || user?.email?.substring(0,2)?.toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
               <span className="sr-only">Toggle user menu</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.displayName || user?.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
                 <Link href="/dashboard/profile"><User className="mr-2 h-4 w-4"/>Profile</Link>
@@ -101,8 +110,8 @@ export function AppHeader() {
                 <Link href="/dashboard/songs/new"><PlusCircle className="mr-2 h-4 w-4"/>Add Song</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/"><LogOut className="mr-2 h-4 w-4"/>Log out</Link>
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4"/>Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

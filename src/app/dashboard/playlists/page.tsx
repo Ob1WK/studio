@@ -3,9 +3,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp } from 'firebase/firestore';
-import { PlusCircle } from 'lucide-react';
+import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
+import { PlusCircle, Users } from 'lucide-react';
 import type { Playlist } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import {
@@ -58,7 +58,6 @@ export default function PlaylistsPage() {
             description,
             isPublic,
             songIds: [],
-            uploadDate: new Date().toISOString(),
             liveSessionId: liveSessionId,
             currentSongId: '',
             transpose: 0,
@@ -70,7 +69,7 @@ export default function PlaylistsPage() {
             if (isPublic) {
                 // Add to the public collection with the same ID
                 const publicDocRef = doc(publicPlaylistsCollectionRef, userDocRef.id);
-                setDocumentNonBlocking(publicDocRef, newPlaylist);
+                setDocumentNonBlocking(publicDocRef, newPlaylist, { merge: false });
             }
             document.getElementById('close-dialog')?.click();
             router.push(`/dashboard/playlists/${userDocRef.id}`);
@@ -135,7 +134,7 @@ export default function PlaylistsPage() {
             {playlistsLoading ? <p>Loading playlists...</p> : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {playlists?.map((playlist) => (
-                    <Link href={playlist.isPublic ? `/dashboard/playlists/${playlist.id}` : '#'} key={playlist.id} aria-disabled={!playlist.isPublic}>
+                    <Link href={`/dashboard/playlists/${playlist.id}`} key={playlist.id}>
                         <Card className="group overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col">
                             <div className="relative">
                                 <Image

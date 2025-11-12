@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUser, useCollection, useFirestore, useMemoFirebase, addDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, serverTimestamp, doc } from 'firebase/firestore';
+import { collection, query, serverTimestamp, doc, where } from 'firebase/firestore';
 import { PlusCircle, Users, Trash2 } from 'lucide-react';
 import type { Playlist, Song } from '@/lib/types';
 import { useRouter } from 'next/navigation';
@@ -55,7 +55,7 @@ export default function PlaylistsPage() {
 
     const songsQuery = useMemoFirebase(() => {
         if (!user) return null;
-        return query(collection(firestore, 'users', user.uid, 'songs'));
+        return query(collection(firestore, 'songs'), where('userId', '==', user.uid));
     }, [firestore, user]);
 
     const { data: playlists, isLoading: playlistsLoading } = useCollection<Playlist>(playlistsQuery);
@@ -83,8 +83,11 @@ export default function PlaylistsPage() {
         const userPlaylistsCollectionRef = collection(firestore, 'users', user.uid, 'playlists');
         
         const liveSessionId = uuidv4();
+        const playlistId = uuidv4();
 
-        const newPlaylistData: Omit<Playlist, 'id'> = {
+
+        const newPlaylistData: Playlist = {
+            id: playlistId,
             userId: user.uid,
             name,
             description,
@@ -98,20 +101,15 @@ export default function PlaylistsPage() {
 
         try {
             // Add to the user's private collection
-            const userDocRef = await addDocumentNonBlocking(userPlaylistsCollectionRef, newPlaylistData);
-            
-            const playlistId = userDocRef.id;
-
-            // Update the private doc with its own ID for reference
-            const userPlaylistDocRef = doc(firestore, 'users', user.uid, 'playlists', playlistId);
-            setDocumentNonBlocking(userPlaylistDocRef, { id: playlistId }, { merge: true });
+            const userDocRef = doc(userPlaylistsCollectionRef, playlistId);
+            setDocumentNonBlocking(userDocRef, {id: playlistId, name: name}, { merge: true });
 
 
             if (isPublic) {
                 // Add to the public collection with the same ID
                 const publicPlaylistsCollectionRef = collection(firestore, 'playlists');
                 const publicDocRef = doc(publicPlaylistsCollectionRef, playlistId);
-                setDocumentNonBlocking(publicDocRef, { ...newPlaylistData, id: playlistId }, { merge: false });
+                setDocumentNonBlocking(publicDocRef, newPlaylistData, { merge: false });
             }
             setDialogOpen(false); // Close dialog on success
             setSelectedSongs([]); // Reset selection
@@ -263,7 +261,7 @@ export default function PlaylistsPage() {
                                         <AlertDialogDescription>
                                             This action cannot be undone. This will permanently delete the playlist
                                             "{playlist.name}".
-                                        </AlertDialogDescription>
+                                        </Description>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>Cancel</AlertDialogCancel>

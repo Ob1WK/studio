@@ -62,9 +62,9 @@
           "description": "Date and time when the song was uploaded.",
           "format": "date-time"
         },
-        "sharedLink": {
+        "originalSongId": {
           "type": "string",
-          "description": "Shareable link for the song."
+          "description": "If the song is a copy, this is the ID of the original song."
         }
       },
       "required": [
@@ -182,7 +182,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user profile information. Accessible only by the user with matching userId.",
+          "description": "Stores user profile information. Accessible only by the user with matching userId for writes, but readable by all.",
           "params": [
             {
               "name": "userId",
@@ -192,18 +192,14 @@
         }
       },
       {
-        "path": "/users/{userId}/songs/{songId}",
+        "path": "/songs/{songId}",
         "definition": {
           "entityName": "Song",
           "schema": {
             "$ref": "#/backend/entities/Song"
           },
-          "description": "Stores songs uploaded by a user. Includes the userId of the uploader for authorization independence.",
+          "description": "Top-level collection for all songs. Readable by all, writable only by the owner.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "songId",
               "description": "The unique identifier of the song."
@@ -212,18 +208,14 @@
         }
       },
       {
-        "path": "/users/{userId}/songs/{songId}/variations/{variationId}",
+        "path": "/songs/{songId}/variations/{variationId}",
         "definition": {
           "entityName": "Variation",
           "schema": {
             "$ref": "#/backend/entities/Variation"
           },
-          "description": "Stores variations of a song submitted by users. Includes the userId of the submitter for authorization independence.",
+          "description": "Stores variations of a song submitted by users. Readable by all, writable only by the owner of the variation.",
           "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            },
             {
               "name": "songId",
               "description": "The unique identifier of the song."
@@ -242,7 +234,7 @@
           "schema": {
             "$ref": "#/backend/entities/Playlist"
           },
-          "description": "Stores user-created playlists. Includes the userId of the playlist creator for authorization independence.",
+          "description": "Stores user-created playlists. Includes the userId of the playlist creator for authorization independence. This is the private copy.",
           "params": [
             {
               "name": "userId",
@@ -272,6 +264,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support HolyHarmonies' core features—song uploads, variation submissions, playlists, and sharing—while adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. User-owned data is organized under `/users/{userId}` for clear ownership. A top-level `/playlists` collection is added to store public or shared playlists, allowing unauthenticated or cross-user access to session rooms via a direct link. This separation ensures that private user data remains secure under `/users/{userId}` while shared data is accessible."
+    "reasoning": "The Firestore structure is updated to support community features. The `songs` collection is now at the top level to allow public read access, which is necessary for users to browse other users' songs. User profiles in `/users/{userId}` are also made publicly readable. Write access remains restricted to owners. This model enables song sharing and discovery while maintaining data ownership and security."
   }
 }

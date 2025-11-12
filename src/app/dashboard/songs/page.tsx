@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useUser, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { PlusCircle, Music, Edit } from 'lucide-react';
 import type { Song } from '@/lib/types';
 
@@ -13,7 +13,8 @@ export default function SongsPage() {
 
     const songsQuery = useMemoFirebase(() => {
         if (!user) return null;
-        return query(collection(firestore, 'users', user.uid, 'songs'));
+        // Query the top-level 'songs' collection for songs by the current user
+        return query(collection(firestore, 'songs'), where('userId', '==', user.uid));
     }, [firestore, user]);
 
     const { data: songs, isLoading: songsLoading } = useCollection<Song>(songsQuery);

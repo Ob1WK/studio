@@ -1,46 +1,25 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, query, where, documentId, getDocs, Firestore } from 'firebase/firestore';
+import { useEffect, useMemo, useState } from 'react';
+import { collection, doc, documentId, getDocs, query, where } from 'firebase/firestore';
+import {
+  useDoc,
+  useFirestore,
+  useMemoFirebase,
+  useUser,
+  updateDocumentNonBlocking,
+} from '@/firebase';
+import { getFirstChord, getNoteFromIndex, getNoteIndex, NOTES, transposeSong } from '@/lib/chords';
 import type { Playlist, Song } from '@/lib/types';
+
+import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Share2, ChevronLeft, ChevronRight, Play, Square } from 'lucide-react';
-import { transposeSong, getNoteFromIndex, getNoteIndex, NOTES, getFirstChord } from '@/lib/chords';
-import { useEffect, useState, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { AppHeader } from '@/components/app-header';
-import Link from 'next/link';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
-async function getSongsForPlaylist(db: Firestore, songIds: string[]): Promise<Song[]> {
-    if (!songIds || songIds.length === 0) return [];
-    
-    // This approach is not ideal for large scale as it queries all users.
-    // A top-level 'songs' collection would be better.
-    // For now, we fetch from all known users who might own songs.
-    // A simplified approach for this app: fetch songs from the playlist owner.
-    // This is still a limitation if songs are from other users.
-    // Let's make it more robust by querying across multiple potential user folders if needed,
-    // but the most robust fix is a better data model.
-    // We will stick to the previous implementation which assumes songs are owned by playlist creator,
-    // as it's the most viable without a big data model refactor.
-    
-    const songDocs = await getDocs(query(collection(db, 'songs'), where(documentId(), 'in', songIds)));
-    const songs: Song[] = [];
-    songDocs.forEach(doc => {
-      songs.push({ id: doc.id, ...doc.data() } as Song);
-    });
-
-    // We need to fetch songs that might belong to other users too.
-    // The current data model is `users/{userId}/songs/{songId}`.
-    // This is the root cause of the difficulty.
-    // The fix requires a data model change.
-    // Let's assume for now that a `songs` collection exists at the root.
-    // This is a necessary change to make this feature work reliably.
-    return songs;
-}
+import { useToast } from '@/hooks/use-toast';
+import { ChevronLeft, ChevronRight, Music, Play, Share2, Square } from 'lucide-react';
 
 
 export default function LivePlaylistPage({ params }: { params: { id: string } }) {
@@ -48,17 +27,12 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
 
   const [songsInPlaylist, setSongsInPlaylist] = useState<Song[]>([]);
   const [songsLoading, setSongsLoading] = useState(true);
   const [shareUrl, setShareUrl] = useState('');
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setShareUrl(window.location.href);
-    }
-  }, []);
-  
   const playlistRef = useMemoFirebase(() => {
     if (!playlistId || !firestore) return null;
     return doc(firestore, 'playlists', playlistId);
@@ -67,19 +41,25 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
   const { data: playlist, isLoading: playlistLoading, error } = useDoc<Playlist>(playlistRef);
   
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setShareUrl(window.location.href);
+    }
+  }, []);
+
+  useEffect(() => {
     if (playlist && playlist.songIds && playlist.songIds.length > 0 && firestore) {
       const fetchSongData = async () => {
         setSongsLoading(true);
-        // We need a robust way to fetch songs. Let's assume a top-level `songs` collection for now.
-        // This is a data modeling issue that must be addressed for this to work.
-        // For now, we will simulate this by trying to fetch from the creator's collection.
-        const songsRef = collection(firestore, 'users', playlist.userId, 'songs');
+        // Fetch songs from the top-level 'songs' collection
+        const songsRef = collection(firestore, 'songs');
         const q = query(songsRef, where(documentId(), 'in', playlist.songIds));
         
         try {
           const songSnapshots = await getDocs(q);
           const foundSongs = songSnapshots.docs.map(doc => ({ id: doc.id, ...doc.data() } as Song));
-          setSongsInPlaylist(foundSongs);
+          // Preserve the order from playlist.songIds
+          const orderedSongs = playlist.songIds.map(id => foundSongs.find(s => s.id === id)).filter(Boolean) as Song[];
+          setSongsInPlaylist(orderedSongs);
         } catch (e) {
             console.error("Error fetching song data:", e);
         } finally {
@@ -92,7 +72,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
         setSongsInPlaylist([]);
     }
   }, [playlist, firestore]);
-
+  
   const currentSong = useMemo(() => songsInPlaylist.find(s => s.id === playlist?.currentSongId), [songsInPlaylist, playlist?.currentSongId]);
   const originalKey = useMemo(() => currentSong ? getFirstChord(currentSong.chords) : null, [currentSong]);
   const displayedChords = useMemo(() => currentSong ? transposeSong(currentSong.chords, playlist?.transpose || 0) : '', [currentSong, playlist?.transpose]);
@@ -105,6 +85,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
     return getNoteFromIndex(newKeyIndex);
   }, [originalKey, playlist?.transpose]);
 
+
   const isAdmin = user && playlist && user.uid === playlist.userId;
 
   const handleSessionState = (isActive: boolean) => {
@@ -112,7 +93,6 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
     const firstSongId = playlist.songIds && playlist.songIds.length > 0 ? playlist.songIds[0] : '';
     updateDocumentNonBlocking(playlistRef, { 
       isSessionActive: isActive,
-      // Reset to first song when starting a session
       currentSongId: isActive ? firstSongId : playlist.currentSongId,
       transpose: 0
     });

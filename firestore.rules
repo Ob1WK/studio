@@ -2,49 +2,45 @@
  * @fileOverview Firestore Security Rules for HolyHarmonies.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model, where each user has full control over their own data.
- * All private data is nested under /users/{userId} to clearly define ownership and simplify authorization.
- * Public data, like shared playlists, is stored in top-level collections for easy access.
+ * This ruleset enforces a strict user-ownership model for writes, but allows public read access
+ * for community features like exploring songs and user profiles.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information and private data.
- * - /users/{userId}/songs/{songId}: Stores songs uploaded by a user.
- * - /users/{userId}/playlists/{playlistId}: Stores user-created playlists.
+ * - /users/{userId}: Stores user profile information. Readable by all, writable by owner.
+ * - /songs/{songId}: Stores all songs. Readable by all, writable by owner.
+ * - /songs/{songId}/variations/{variationId}: Stores variations. Readable by all, writable by owner.
+ * - /users/{userId}/playlists/{playlistId}: Stores private references to user-created playlists.
  * - /playlists/{playlistId}: Stores public playlists for sharing and real-time sessions.
- *
- * Key Security Decisions:
- * - Users can only write to their own data.
- * - Any user can read from the public /playlists/{playlistId} collection if the playlist's isPublic flag is true.
- * - The admin of a playlist (the owner) can update the real-time session fields (currentSongId, transpose).
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can only manage their own profile.
+    // User profiles are public to read, but only the owner can change their profile.
     match /users/{userId} {
-      allow read, update, delete: if isOwner(userId);
-      allow create: if request.auth.uid == userId;
-    }
-
-    // Users can only manage their own songs.
-    match /users/{userId}/songs/{songId} {
-      allow read, list, create, update, delete: if isOwner(userId);
+      allow get, list: if true;
+      allow create, update, delete: if isOwner(userId);
     }
     
-    // Users can only manage their own variations.
-    match /users/{userId}/songs/{songId}/variations/{variationId} {
-       allow read, list, create, update, delete: if isOwner(userId);
+    // Songs are public to read. Only the owner can create, update or delete their songs.
+    match /songs/{songId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.userId == request.auth.uid;
+      allow update, delete: if resource.data.userId == request.auth.uid;
+      
+        // Variations are public to read. Only the variation owner can manage it.
+        match /variations/{variationId} {
+           allow get, list: if true;
+           allow create: if request.resource.data.userId == request.auth.uid;
+           allow update, delete: if resource.data.userId == request.auth.uid;
+        }
     }
 
     // Users can only manage their own private playlist data.
     match /users/{userId}/playlists/{playlistId} {
       allow read, list, create, delete: if isOwner(userId);
-      // The user can update their own playlist. Also allow them to update the corresponding public playlist document.
       allow update: if isOwner(userId) && (
-        // Case 1: Updating the private playlist document
         resource.data.userId == userId ||
-        // Case 2: Updating the public playlist document from a private context
         get(/databases/$(database)/documents/playlists/$(playlistId)).data.userId == userId
       );
     }

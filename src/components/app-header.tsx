@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { Menu, Music, LogOut, PlusCircle, User, ListMusic } from 'lucide-react';
+import { Menu, Music, LogOut, PlusCircle, User, ListMusic, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,6 +51,12 @@ export function AppHeader() {
         >
           Playlists
         </Link>
+        <Link
+          href="/dashboard/explore"
+          className="text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Explore
+        </Link>
       </nav>
       <Sheet>
         <SheetTrigger asChild>
@@ -82,6 +88,12 @@ export function AppHeader() {
               className="text-muted-foreground hover:text-foreground"
             >
               Playlists
+            </Link>
+             <Link
+              href="/dashboard/explore"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Explore
             </Link>
             <Link
               href="/dashboard/songs/new"
@@ -116,6 +128,9 @@ export function AppHeader() {
             </DropdownMenuItem>
              <DropdownMenuItem asChild>
                 <Link href="/dashboard/songs"><ListMusic className="mr-2 h-4 w-4"/>My Songs</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+                <Link href="/dashboard/explore"><Search className="mr-2 h-4 w-4"/>Explore</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
                 <Link href="/dashboard/songs/new"><PlusCircle className="mr-2 h-4 w-4"/>Add Song</Link>

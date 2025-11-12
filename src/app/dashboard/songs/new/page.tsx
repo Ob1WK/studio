@@ -16,7 +16,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // This regex helps identify if a word is likely a chord.
 // It looks for standard chord patterns (e.g., C, Gm, F#m7, G/B).
-const CHORD_REGEX = /^[A-G][#b]?(m|maj|dim|aug|sus|add)?[0-9]?(\/[A-G][#b]?)?$/;
+const CHORD_REGEX = /^[A-G][#b]?(m|maj|dim|aug|sus|add|m7|M7|7)?[0-9]?(\/[A-G][#b]?)?$/;
 
 const isChordLine = (line: string): boolean => {
     const words = line.trim().split(/\s+/);
@@ -108,9 +108,9 @@ export default function NewSongPage() {
         }
         
         const songId = uuidv4();
-        const songRef = doc(firestore, 'users', user.uid, 'songs', songId);
+        const songRef = doc(firestore, 'songs', songId);
 
-        const newSong: Omit<Song, 'id'> & { id: string } = {
+        const newSong: Song = {
             id: songId,
             userId: user.uid,
             title,
@@ -120,27 +120,17 @@ export default function NewSongPage() {
             variations: [],
         };
         
-        try {
-            // Use setDoc for a single, reliable write operation.
-            setDocumentNonBlocking(songRef, newSong, { merge: false });
+        // Use setDoc for a single, reliable write operation.
+        setDocumentNonBlocking(songRef, newSong, { merge: false });
 
-            toast({
-                title: "Song Submitted!",
-                description: "Your new song has been added successfully.",
-            });
-            
-            // Redirect after a short delay to allow the write to begin processing.
-            setTimeout(() => router.push('/dashboard/songs'), 500);
+        toast({
+            title: "Song Submitted!",
+            description: "Your new song has been added successfully.",
+        });
+        
+        // Redirect after a short delay to allow the write to begin processing.
+        setTimeout(() => router.push('/dashboard/songs'), 500);
 
-        } catch (error) {
-            console.error("Error creating song:", error);
-            toast({
-                variant: "destructive",
-                title: "Submission Error",
-                description: "There was a problem saving your song.",
-            });
-             setIsSubmitting(false);
-        }
     }
 
     return (
@@ -149,7 +139,7 @@ export default function NewSongPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle className="font-headline text-2xl">Add a New Song</CardTitle>
-                        <CardDescription>Fill in the details below. Paste lyrics and chords, and we'll format them for you on paste.</CardDescription>
+                        <CardDescription>Fill in the details below. Paste lyrics and chords from sites like LaCuerda.net and we'll format them.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

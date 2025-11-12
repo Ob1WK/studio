@@ -22,6 +22,7 @@ export type Song = {
   uploadDate: string;
   sharedLink?: string;
   variations?: Variation[];
+  originalSongId?: string; // To trace back a copied song
 };
 
 export type Playlist = {

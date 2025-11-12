@@ -1,12 +1,12 @@
 'use client';
 
-import { notFound, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useUser, useDoc, useFirestore, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { Song } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Share2, Save, Trash2, Music } from 'lucide-react';
+import { Save, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,9 +37,10 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const songRef = useMemoFirebase(() => {
-    if (!user || !songId) return null;
-    return doc(firestore, 'users', user.uid, 'songs', songId);
-  }, [firestore, user, songId]);
+    if (!songId) return null;
+    // Songs are now in a top-level collection
+    return doc(firestore, 'songs', songId);
+  }, [firestore, songId]);
 
   const { data: song, isLoading, error } = useDoc<Song>(songRef);
 

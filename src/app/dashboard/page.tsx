@@ -20,7 +20,7 @@ export default function DashboardPage() {
 
     const songsQuery = useMemoFirebase(() => {
         if (!user) return null;
-        return query(collection(firestore, 'users', user.uid, 'songs'));
+        return query(collection(firestore, 'songs'), where('userId', '==', user.uid));
     }, [firestore, user]);
 
     const { data: playlists, isLoading: playlistsLoading } = useCollection<Playlist>(playlistsQuery);

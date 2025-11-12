@@ -10,12 +10,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const ImportSongInputSchema = z.object({
+const ImportSongInputSchema = z.object({
   url: z.string().url().describe('The URL of the song page on lacuerda.net'),
 });
 export type ImportSongInput = z.infer<typeof ImportSongInputSchema>;
 
-export const ImportSongOutputSchema = z.object({
+const ImportSongOutputSchema = z.object({
   title: z.string().describe('The title of the song.'),
   artist: z.string().describe('The artist of the song.'),
   chords: z.string().describe('The full content of the song with chords and lyrics.'),

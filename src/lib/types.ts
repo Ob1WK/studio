@@ -1,31 +1,35 @@
-export interface User {
+export type User = {
   id: string;
-  name: string;
   email: string;
-  avatarUrl: string;
-}
+  username: string;
+  profilePictureUrl?: string;
+};
 
-export interface Variation {
+export type Variation = {
   id: string;
-  content: string;
-  author: User;
-  createdAt: string;
-}
+  songId: string;
+  userId: string;
+  variationText: string;
+  submissionDate: string;
+};
 
-export interface Song {
+export type Song = {
   id: string;
+  userId: string;
   title: string;
   artist: string;
-  content: string;
-  author: User;
-  variations: Variation[];
-}
+  chords: string;
+  uploadDate: string;
+  sharedLink?: string;
+  variations?: Variation[];
+};
 
-export interface Playlist {
+export type Playlist = {
   id: string;
+  userId: string;
   name: string;
-  description: string;
-  songs: Song[];
-  author: User;
-  coverArtUrl: string;
-}
+  description?: string;
+  isPublic: boolean;
+  songIds: string[];
+  coverArtUrl?: string;
+};

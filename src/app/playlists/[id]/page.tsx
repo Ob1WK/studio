@@ -19,7 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, Music, Play, Share2, Square } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Music, Play, Share2, Square, ChevronsUpDown } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 export default function LivePlaylistPage({ params }: { params: { id: string } }) {
@@ -28,6 +30,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const isMobile = useIsMobile(); // Hook para detectar si es móvil
 
   const [songsInPlaylist, setSongsInPlaylist] = useState<Song[]>([]);
   const [songsLoading, setSongsLoading] = useState(true);
@@ -225,43 +228,8 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
         <div className="container mx-auto max-w-6xl py-8">
             <div className="flex flex-col lg:flex-row gap-8">
 
-                {/* Song List Sidebar */}
-                <div className="lg:w-1/3">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="font-headline">{playlist.name}</CardTitle>
-                            <CardDescription>Live Session</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <ul className="space-y-2">
-                            {songsLoading ? <p>Loading songs...</p> : songsInPlaylist.map((song) => (
-                                <li key={song.id}>
-                                    <Button 
-                                            variant={song.id === playlist.currentSongId ? 'secondary' : 'ghost'}
-                                            className="w-full justify-start text-left h-auto"
-                                            onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: song.id, transpose: 0 })}
-                                            disabled={!isAdmin}
-                                        >
-                                        <Music className="mr-2 h-4 w-4 flex-shrink-0" />
-                                        <div>
-                                                <p className="font-semibold">{song.title}</p>
-                                                <p className="text-xs text-muted-foreground">{song.artist}</p>
-                                        </div>
-                                    </Button>
-                                </li>
-                            ))}
-                            </ul>
-                        </CardContent>
-                    </Card>
-                    {isAdmin && (
-                        <Button variant="destructive" className="w-full mt-4" onClick={() => handleSessionState(false)}>
-                            <Square className="mr-2 h-4 w-4"/> End Session
-                        </Button>
-                    )}
-                </div>
-
-                {/* Main Content: Current Song */}
-                <div className="lg:w-2/3">
+                {/* Main Content: Current Song (prioritized on mobile) */}
+                <div className="lg:w-2/3 order-1 lg:order-none"> {/* order-1 para móvil, order-none para desktop */}
                     {currentSong && !songsLoading ? (
                         <Card className="sticky top-20">
                             <CardHeader>
@@ -288,7 +256,7 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                                 </div>
                             </CardHeader>
                             <CardContent>
-                                <pre className="font-code text-sm whitespace-pre-wrap leading-relaxed bg-secondary p-4 rounded-md h-[60vh] overflow-auto">
+                                <pre className="font-code text-sm whitespace-pre-wrap leading-relaxed bg-secondary p-4 rounded-md max-h-[calc(100vh-250px)] overflow-y-auto lg:max-h-[60vh]">
                                     {displayedChords.trim()}
                                 </pre>
                             </CardContent>
@@ -313,6 +281,76 @@ export default function LivePlaylistPage({ params }: { params: { id: string } })
                             The session is active. Waiting for the leader to select a song.
                             </p>
                         </Card>
+                    )}
+                </div>
+
+                {/* Song List Sidebar (after current song on mobile) */}
+                <div className="lg:w-1/3 order-2 lg:order-none"> {/* order-2 para móvil, order-none para desktop */}
+                    {isMobile ? (
+                        <Collapsible className="w-full">
+                            <CollapsibleTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                    <span>{playlist.name} Songs ({songsInPlaylist.length})</span>
+                                    <ChevronsUpDown className="h-4 w-4" />
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <Card className="mt-4">
+                                    <CardContent className="p-4">
+                                        <ul className="space-y-2">
+                                        {songsLoading ? <p>Loading songs...</p> : songsInPlaylist.map((song) => (
+                                            <li key={song.id}>
+                                                <Button 
+                                                        variant={song.id === playlist.currentSongId ? 'secondary' : 'ghost'}
+                                                        className="w-full justify-start text-left h-auto"
+                                                        onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: song.id, transpose: 0 })}
+                                                        disabled={!isAdmin}
+                                                    >
+                                                    <Music className="mr-2 h-4 w-4 flex-shrink-0" />
+                                                    <div>
+                                                            <p className="font-semibold">{song.title}</p>
+                                                            <p className="text-xs text-muted-foreground">{song.artist}</p>
+                                                    </div>
+                                                </Button>
+                                            </li>
+                                        ))}
+                                        </ul>
+                                    </CardContent>
+                                </Card>
+                            </CollapsibleContent>
+                        </Collapsible>
+                    ) : (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="font-headline">{playlist.name}</CardTitle>
+                                <CardDescription>Live Session</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <ul className="space-y-2">
+                                {songsLoading ? <p>Loading songs...</p> : songsInPlaylist.map((song) => (
+                                    <li key={song.id}>
+                                        <Button 
+                                                variant={song.id === playlist.currentSongId ? 'secondary' : 'ghost'}
+                                                className="w-full justify-start text-left h-auto"
+                                                onClick={() => isAdmin && playlistRef && updateDocumentNonBlocking(playlistRef, { currentSongId: song.id, transpose: 0 })}
+                                                disabled={!isAdmin}
+                                            >
+                                            <Music className="mr-2 h-4 w-4 flex-shrink-0" />
+                                            <div>
+                                                    <p className="font-semibold">{song.title}</p>
+                                                    <p className="text-xs text-muted-foreground">{song.artist}</p>
+                                            </div>
+                                        </Button>
+                                    </li>
+                                ))}
+                                </ul>
+                            </CardContent>
+                        </Card>
+                    )}
+                    {isAdmin && (
+                        <Button variant="destructive" className="w-full mt-4" onClick={() => handleSessionState(false)}>
+                            <Square className="mr-2 h-4 w-4"/> End Session
+                        </Button>
                     )}
                 </div>
             </div>

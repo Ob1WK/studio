@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react'; // Importa useRef
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirestore, useUser, useDoc, setDocumentNonBlocking } from '@/firebase';
 import type { User, Song } from '@/lib/types';
@@ -25,8 +25,12 @@ export default function UserProfilePage({ params }: { params: { userId: string }
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [songsLoading, setSongsLoading] = useState(true);
+  
+  const mounted = useRef(true); // Añade un ref para rastrear si el componente está montado
 
   useEffect(() => {
+    mounted.current = true; // Establece a true al montar
+
     const fetchSongs = async () => {
       if (!userId) return;
       setSongsLoading(true);
@@ -34,16 +38,24 @@ export default function UserProfilePage({ params }: { params: { userId: string }
       const q = query(songsRef, where('userId', '==', userId));
       try {
         const querySnapshot = await getDocs(q);
-        const userSongs = querySnapshot.docs.map(doc => doc.data() as Song);
-        setSongs(userSongs);
+        if (mounted.current) { // Solo actualiza el estado si el componente aún está montado
+          const userSongs = querySnapshot.docs.map(doc => doc.data() as Song);
+          setSongs(userSongs);
+        }
       } catch (error) {
         console.error("Error fetching user's songs:", error);
       } finally {
-        setSongsLoading(false);
+        if (mounted.current) { // Solo actualiza el estado si el componente aún está montado
+          setSongsLoading(false);
+        }
       }
     };
 
     fetchSongs();
+
+    return () => {
+      mounted.current = false; // Establece a false al desmontar
+    };
   }, [userId, firestore]);
   
   const handleCopyToMySongs = (song: Song) => {
@@ -60,7 +72,7 @@ export default function UserProfilePage({ params }: { params: { userId: string }
       id: songId,
       userId: currentUser.uid, // Set current user as owner
       uploadDate: new Date().toISOString(),
-      // Variations are not copied directly, as they are a subcollection
+      // Variations are not copied directamente, as they are a subcollection
       originalSongId: song.id, // Keep track of the original
     };
 

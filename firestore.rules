@@ -3,38 +3,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read their own profile, and all users can read any profile.
-    // Users can only write to their own profile.
+    // Users collection: Public read, owner write
     match /users/{userId} {
-      allow read: if true; // Public read for profiles
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read: if true; // Anyone can read user profiles
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId; // Only the user can write to their own profile
     }
 
-    // Songs are publicly readable. Only the owner can create, update, or delete.
+    // Songs collection: Public read, owner write
     match /songs/{songId} {
-      allow read: if true; // Public read for songs
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-
-      // Variations are publicly readable. Only the owner can create, update, or delete.
-      match /variations/{variationId} {
-        allow read: if true; // Public read for variations
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-        allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-      }
+      allow read: if true; // Anyone can read songs
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId; // Only authenticated user can create a song for themselves
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId; // Only the owner can update or delete their song
     }
 
-    // Private playlists (under /users/{userId}/playlists) are only accessible by the owner.
+    // Variations subcollection: Public read, owner write
+    match /songs/{songId}/variations/{variationId} {
+      allow read: if true; // Anyone can read variations
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId; // Only authenticated user can create a variation for themselves
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId; // Only the owner can update or delete their variation
+    }
+
+    // Private Playlists (under users collection): Owner read/write
     match /users/{userId}/playlists/{playlistId} {
-      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId;
+      allow read, create, update, delete: if request.auth != null && request.auth.uid == userId; // Only the owner can read/write their private playlists
     }
 
-    // Public playlists (top-level /playlists/{playlistId}) are publicly readable if isPublic is true.
-    // Only the owner (matching userId in the playlist data) can create, update, or delete.
+    // Public Playlists (top-level collection): Public read, owner write
     match /playlists/{playlistId} {
-      allow read: if resource.data.isPublic == true;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read: if true; // Anyone can read public playlists
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId; // Only authenticated user can create a public playlist for themselves
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId; // Only the owner can update or delete their public playlist
     }
   }
 }
